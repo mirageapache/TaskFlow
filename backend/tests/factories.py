@@ -45,12 +45,35 @@ class WorkspaceMemberFactory(DjangoModelFactory):
     role = WorkspaceMember.Role.MEMBER
 
 
-# TODO: Phase 1 TDD — 實作 Project Model 後啟用
-# from apps.projects.models import Project, ProjectStatus, ProjectMember
-#
-# class ProjectFactory(DjangoModelFactory): ...
-# class ProjectStatusFactory(DjangoModelFactory): ...
-# class ProjectMemberFactory(DjangoModelFactory): ...
+from apps.projects.models import Project, ProjectStatus, ProjectMember
+
+
+class ProjectFactory(DjangoModelFactory):
+    class Meta:
+        model = Project
+
+    workspace = factory.SubFactory(WorkspaceFactory)
+    name = factory.Faker('bs', locale='zh_TW')
+    description = ''
+    color = '#6366f1'
+
+
+class ProjectStatusFactory(DjangoModelFactory):
+    class Meta:
+        model = ProjectStatus
+
+    project = factory.SubFactory(ProjectFactory)
+    name = factory.Sequence(lambda n: f'Status {n}')
+    order = factory.Sequence(lambda n: n)
+
+
+class ProjectMemberFactory(DjangoModelFactory):
+    class Meta:
+        model = ProjectMember
+
+    project = factory.SubFactory(ProjectFactory)
+    user = factory.SubFactory(UserFactory)
+    role = ProjectMember.Role.MEMBER
 
 
 # TODO: Phase 1 TDD — 實作 Task Model 後啟用

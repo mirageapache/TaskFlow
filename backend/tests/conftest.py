@@ -29,7 +29,7 @@ def auth_client(api_client, user):
     return api_client
 
 
-from tests.factories import WorkspaceFactory
+from tests.factories import WorkspaceFactory, ProjectFactory, ProjectStatusFactory
 
 
 @pytest.fixture
@@ -37,13 +37,11 @@ def workspace(db, user):
     return WorkspaceFactory(owner=user)
 
 
-# TODO: Phase 1 TDD — 實作 Project Model 後啟用
-# from tests.factories import ProjectFactory, ProjectStatusFactory
-#
-# @pytest.fixture
-# def project(workspace):
-#     return ProjectFactory(workspace=workspace)
-#
-# @pytest.fixture
-# def status(project):
-#     return ProjectStatusFactory(project=project)
+@pytest.fixture
+def project(workspace):
+    return ProjectFactory(workspace=workspace)
+
+
+@pytest.fixture
+def status(project):
+    return ProjectStatusFactory(project=project)
