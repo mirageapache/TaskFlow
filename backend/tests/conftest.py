@@ -29,12 +29,16 @@ def auth_client(api_client, user):
     return api_client
 
 
-# TODO: Phase 1 TDD — 實作 Workspace / Project Model 後啟用
-# from tests.factories import WorkspaceFactory, ProjectFactory, ProjectStatusFactory
-#
-# @pytest.fixture
-# def workspace(user):
-#     return WorkspaceFactory(owner=user)
+from tests.factories import WorkspaceFactory
+
+
+@pytest.fixture
+def workspace(db, user):
+    return WorkspaceFactory(owner=user)
+
+
+# TODO: Phase 1 TDD — 實作 Project Model 後啟用
+# from tests.factories import ProjectFactory, ProjectStatusFactory
 #
 # @pytest.fixture
 # def project(workspace):

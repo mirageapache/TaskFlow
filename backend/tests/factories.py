@@ -25,21 +25,24 @@ class UserSocialAccountFactory(DjangoModelFactory):
     provider_user_id = factory.Sequence(lambda n: f'google_uid_{n}')
 
 
-# TODO: Phase 1 TDD — 實作 Workspace Model 後啟用
-# from apps.workspaces.models import Workspace, WorkspaceMember
-#
-# class WorkspaceFactory(DjangoModelFactory):
-#     class Meta:
-#         model = Workspace
-#     name  = factory.Faker('company', locale='zh_TW')
-#     owner = factory.SubFactory(UserFactory)
-#
-# class WorkspaceMemberFactory(DjangoModelFactory):
-#     class Meta:
-#         model = WorkspaceMember
-#     workspace = factory.SubFactory(WorkspaceFactory)
-#     user      = factory.SubFactory(UserFactory)
-#     role      = WorkspaceMember.Role.MEMBER
+from apps.workspaces.models import Workspace, WorkspaceMember
+
+
+class WorkspaceFactory(DjangoModelFactory):
+    class Meta:
+        model = Workspace
+
+    name = factory.Faker('company', locale='zh_TW')
+    owner = factory.SubFactory(UserFactory)
+
+
+class WorkspaceMemberFactory(DjangoModelFactory):
+    class Meta:
+        model = WorkspaceMember
+
+    workspace = factory.SubFactory(WorkspaceFactory)
+    user = factory.SubFactory(UserFactory)
+    role = WorkspaceMember.Role.MEMBER
 
 
 # TODO: Phase 1 TDD — 實作 Project Model 後啟用
