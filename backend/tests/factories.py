@@ -10,6 +10,7 @@ fake = Faker('zh_TW')
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = User
+        skip_postgeneration_save = True
 
     email = factory.Sequence(lambda n: f'user{n}@example.com')
     username = factory.Sequence(lambda n: f'user{n}')
@@ -76,8 +77,23 @@ class ProjectMemberFactory(DjangoModelFactory):
     role = ProjectMember.Role.MEMBER
 
 
-# TODO: Phase 1 TDD — 實作 Task Model 後啟用
-# from apps.tasks.models import Task, Tag
-#
-# class TagFactory(DjangoModelFactory): ...
-# class TaskFactory(DjangoModelFactory): ...
+from apps.tasks.models import Tag, Task
+
+
+class TagFactory(DjangoModelFactory):
+    class Meta:
+        model = Tag
+
+    workspace = factory.SubFactory(WorkspaceFactory)
+    name = factory.Sequence(lambda n: f'tag-{n}')
+    color = '#94a3b8'
+
+
+class TaskFactory(DjangoModelFactory):
+    class Meta:
+        model = Task
+
+    project = factory.SubFactory(ProjectFactory)
+    status = factory.SubFactory(ProjectStatusFactory, project=factory.SelfAttribute('..project'))
+    creator = factory.SubFactory(UserFactory)
+    title = factory.Sequence(lambda n: f'Task {n}')

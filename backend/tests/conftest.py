@@ -29,7 +29,7 @@ def auth_client(api_client, user):
     return api_client
 
 
-from tests.factories import WorkspaceFactory, ProjectFactory, ProjectStatusFactory
+from tests.factories import WorkspaceFactory, ProjectFactory, ProjectStatusFactory, TaskFactory
 
 
 @pytest.fixture
@@ -45,3 +45,8 @@ def project(workspace):
 @pytest.fixture
 def status(project):
     return ProjectStatusFactory(project=project)
+
+
+@pytest.fixture
+def task(project, status, user):
+    return TaskFactory(project=project, status=status, creator=user)
