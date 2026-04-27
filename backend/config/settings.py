@@ -94,8 +94,7 @@ else:
         }
     }
 
-# Custom User Model — 於 Phase 1 TDD 實作 User Model 時啟用
-# AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = 'users.User'
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -159,3 +158,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# auth.E003 要求 USERNAME_FIELD 有 unique=True
+# 本專案改用條件唯一約束（WHERE deleted_at IS NULL），允許軟刪除後相同 email 重新註冊
+# 詳見 .doc/taskflow-backend.md §5.2
+SILENCED_SYSTEM_CHECKS = ['auth.E003']

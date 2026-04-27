@@ -1,6 +1,8 @@
 import pytest
 from rest_framework.test import APIClient
 
+from tests.factories import UserFactory
+
 
 @pytest.fixture
 def api_client():
@@ -8,21 +10,27 @@ def api_client():
     return APIClient()
 
 
-# TODO: Phase 1 TDD — 實作 User Model 後取消以下註解
-# from tests.factories import UserFactory, WorkspaceFactory, ProjectFactory, ProjectStatusFactory
-#
-# @pytest.fixture
-# def user(db):
-#     return UserFactory()
-#
-# @pytest.fixture
-# def other_user(db):
-#     return UserFactory()
-#
-# @pytest.fixture
-# def auth_client(api_client, user):
-#     api_client.force_authenticate(user=user)
-#     return api_client
+@pytest.fixture
+def user(db):
+    """已儲存至測試 DB 的使用者"""
+    return UserFactory()
+
+
+@pytest.fixture
+def other_user(db):
+    """另一個使用者，用於測試越權存取"""
+    return UserFactory()
+
+
+@pytest.fixture
+def auth_client(api_client, user):
+    """已認證的 API Client（force_authenticate，不走 JWT 流程）"""
+    api_client.force_authenticate(user=user)
+    return api_client
+
+
+# TODO: Phase 1 TDD — 實作 Workspace / Project Model 後啟用
+# from tests.factories import WorkspaceFactory, ProjectFactory, ProjectStatusFactory
 #
 # @pytest.fixture
 # def workspace(user):
