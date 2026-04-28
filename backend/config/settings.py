@@ -49,6 +49,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # 必須放在 AuthenticationMiddleware 之後，request.user 才存在；
+    # 此 middleware 把 request.user 暫存到 thread-local 供 Signal handler 使用
+    'apps.users.middleware.CurrentUserMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -158,6 +161,14 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# S3 / Object Storage（附件 Presigned URL）
+AWS_S3_BUCKET = config('AWS_S3_BUCKET', default='taskflow-attachments-dev')
+AWS_S3_REGION = config('AWS_S3_REGION', default='ap-northeast-1')
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default='')
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default='')
+AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default='')  # MinIO 等本地 S3 相容服務
+PRESIGNED_URL_EXPIRES_SECONDS = 60 * 15  # 15 分鐘
 
 # auth.E003 要求 USERNAME_FIELD 有 unique=True
 # 本專案改用條件唯一約束（WHERE deleted_at IS NULL），允許軟刪除後相同 email 重新註冊

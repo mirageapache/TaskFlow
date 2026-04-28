@@ -1,7 +1,16 @@
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from tests.factories import UserFactory
+
+
+@pytest.fixture(autouse=True)
+def _clear_throttle_cache():
+    """每個測試前清除 DRF throttle 計數，避免測試間互相影響"""
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture

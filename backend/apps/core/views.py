@@ -10,6 +10,8 @@ from rest_framework.response import Response
 def health_check(request):
     """服務健康狀態檢查端點（無需 JWT）。
 
+    回傳 JSON：`{"status": "ok", "db": "ok" | "unavailable"}`
+    供 Load Balancer / Kubernetes liveness probe 探測使用。
     Phase 1 僅檢查 DB 連線；Phase 2 導入 Redis 後會加上 redis 檢查。
     """
     db_status = 'ok'

@@ -5,6 +5,10 @@ from apps.core.models import BaseModel
 
 
 class Workspace(BaseModel):
+    """工作區：團隊協作的最高層級容器，內可包含多個 Project。
+
+    `owner` 採 PROTECT 避免帳號刪除時連帶刪除整個工作區（需先轉移擁有權）。
+    """
     name = models.CharField(max_length=100)
     description = models.TextField(default='', blank=True)
     owner = models.ForeignKey(
@@ -19,6 +23,11 @@ class Workspace(BaseModel):
 
 
 class WorkspaceMember(BaseModel):
+    """工作區成員與角色關聯表。
+
+    `(workspace, user)` 為唯一鍵，避免同一使用者被加入兩次。
+    """
+
     class Role(models.TextChoices):
         OWNER = 'owner', 'Owner'
         ADMIN = 'admin', 'Admin'

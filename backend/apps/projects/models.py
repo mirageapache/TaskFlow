@@ -6,6 +6,7 @@ from apps.workspaces.models import Workspace
 
 
 class Project(BaseModel):
+    """專案：隸屬於某 Workspace，包含多個 Task 與自訂狀態（看板欄位）。"""
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='projects')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, default='')
@@ -16,7 +17,10 @@ class Project(BaseModel):
 
 
 class ProjectStatus(BaseModel):
-    """專案自訂看板欄位（如：待處理、進行中、已完成）"""
+    """專案自訂看板欄位（如：待處理、進行中、已完成）。
+
+    `order` 控制看板顯示順序；`is_completed` 標記完成欄位用於統計。
+    """
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='statuses')
     name = models.CharField(max_length=50)
     color = models.CharField(max_length=7, default='#94a3b8')
@@ -29,6 +33,13 @@ class ProjectStatus(BaseModel):
 
 
 class ProjectMember(BaseModel):
+    """專案成員與角色關聯。
+
+    Manager: 可管理專案設定 / 狀態欄位 / 邀請成員
+    Member:  可建立 / 修改任務
+    Viewer:  唯讀
+    """
+
     class Role(models.TextChoices):
         MANAGER = 'manager', 'Manager'
         MEMBER = 'member', 'Member'

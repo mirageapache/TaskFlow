@@ -6,7 +6,11 @@ from apps.projects.models import Project, ProjectStatus
 
 
 class Tag(BaseModel):
-    """工作區層級的標籤，可跨專案使用"""
+    """工作區層級的標籤，可跨專案使用。
+
+    `(workspace, name)` 為唯一鍵，避免同一工作區出現重複標籤。
+    用 string FK `'workspaces.Workspace'` 引用避免與 workspaces 互相 import 形成循環。
+    """
     workspace = models.ForeignKey(
         'workspaces.Workspace', on_delete=models.CASCADE, related_name='tags',
     )
@@ -21,6 +25,18 @@ class Tag(BaseModel):
 
 
 class Task(BaseModel):
+    """任務 Model — 系統最複雜也最核心的實體。
+
+    關聯：
+      - `project`: 所屬專案（CASCADE）
+      - `status`: 看板欄位（PROTECT，避免欄位被刪除時誤砍任務）
+      - `parent_task`: 自關聯，用於子任務（self FK）
+      - `creator`: 建立者（SET_NULL，使用者刪除時保留歷史紀錄）
+      - `assignees`: 多對多透過 `TaskAssignee` 中介表，含指派時間
+      - `tags`: 多對多到 Tag
+      - `dependencies`: 自關聯多對多（非對稱），表示前置任務
+    """
+
     class Priority(models.TextChoices):
         URGENT = 'urgent', 'Urgent'
         HIGH = 'high', 'High'
@@ -63,7 +79,10 @@ class Task(BaseModel):
 
 
 class TaskAssignee(models.Model):
-    """Task ↔ User M2M 中介表，含指派時間；不繼承 BaseModel（不需軟刪除）"""
+    """Task ↔ User M2M 中介表，含指派時間。
+
+    刻意不繼承 BaseModel：用整數 PK 即可，且不需軟刪除（解除指派直接 DELETE）。
+    """
     task = models.ForeignKey(Task, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     assigned_at = models.DateTimeField(auto_now_add=True)
@@ -76,6 +95,7 @@ class TaskAssignee(models.Model):
 
 
 class TaskComment(BaseModel):
+    """任務留言。`author` 採 SET_NULL 保留刪除者留言（顯示為「已刪除使用者」）。"""
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -91,6 +111,11 @@ class TaskComment(BaseModel):
 
 
 class TaskAttachment(BaseModel):
+    """任務附件 metadata（實際檔案在 S3，此處只記錄 key 與狀態）。
+
+    `is_confirmed=False` 表示已產生 Presigned URL 但前端尚未通知上傳完成。
+    Phase 2 可加排程清理超過 24 小時未確認的紀錄。
+    """
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='attachments')
     uploader = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -109,7 +134,11 @@ class TaskAttachment(BaseModel):
 
 
 class TaskActivityLog(models.Model):
-    """任務變更紀錄，由 Django Signal 自動寫入，不繼承 BaseModel（不需軟刪除）"""
+    """任務變更紀錄。
+
+    刻意不繼承 BaseModel：紀錄為 append-only，不需軟刪除；用整數 PK 提升寫入效能。
+    Phase 1 由 view 層手動寫入；Phase 2 規劃改由 Django Signal 自動產生。
+    """
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='activity_logs')
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
