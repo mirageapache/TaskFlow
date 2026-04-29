@@ -1,9 +1,9 @@
 /**
  * Vue Router 設定 + Navigation Guard。
  *
- * 路由分兩類：
- * - 公開頁（meta.requiresAuth = false）：login / register / oauth/callback
- * - 受保護頁（meta.requiresAuth = true）：dashboard / board / ai / settings
+ * 路由 meta：
+ * - requiresAuth: boolean — 是否需要登入
+ * - layout: 'auth' | 'app' — App.vue 用此決定外殼版型（.doc/taskflow_layout_design.md §9.1 / §5.3）
  *
  * Guard 行為：
  * 1. 首次導航時呼叫 `authStore.initAuth()` 驗證已存的 token
@@ -18,50 +18,62 @@ import type { RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
-  // 公開頁面
+  // 公開頁面（AuthLayout）
   {
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, layout: 'auth' },
   },
   {
     path: '/register',
     name: 'register',
     component: () => import('@/views/RegisterView.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, layout: 'auth' },
   },
   {
     path: '/oauth/callback',
     name: 'oauth-callback',
     component: () => import('@/views/OAuthCallbackView.vue'),
-    meta: { requiresAuth: false },
+    meta: { requiresAuth: false, layout: 'auth' },
   },
 
-  // 受保護頁面
+  // 受保護頁面（AppLayout）
   {
     path: '/dashboard',
     name: 'dashboard',
     component: () => import('@/views/DashboardView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, layout: 'app' },
+  },
+  {
+    path: '/workspaces',
+    name: 'workspaces',
+    component: () => import('@/views/WorkspaceListView.vue'),
+    meta: { requiresAuth: true, layout: 'app' },
+  },
+  {
+    path: '/workspaces/:id/projects',
+    name: 'workspace-projects',
+    component: () => import('@/views/ProjectListView.vue'),
+    meta: { requiresAuth: true, layout: 'app' },
   },
   {
     path: '/project/:id/board',
     name: 'board',
     component: () => import('@/views/BoardView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, layout: 'app' },
   },
   {
     path: '/ai',
     name: 'ai',
     component: () => import('@/views/AiCenterView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, layout: 'app' },
   },
   {
     path: '/settings',
     name: 'settings',
     component: () => import('@/views/SettingsView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, layout: 'app' },
   },
 
   // Catch-all：未匹配路由轉到 dashboard（已登入）或 login（未登入由 guard 接手）
@@ -101,3 +113,14 @@ export function _resetAuthInitialized() {
 }
 
 export default router
+
+/**
+ * 對 vue-router 的 RouteMeta 進行 type augmentation，
+ * 讓 to.meta.layout / to.meta.requiresAuth 在 TS 上有型別推斷。
+ */
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean
+    layout?: 'auth' | 'app'
+  }
+}

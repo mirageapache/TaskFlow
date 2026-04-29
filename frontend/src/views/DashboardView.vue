@@ -1,11 +1,9 @@
 <template>
-  <div class="min-h-screen bg-surface-50 dark:bg-surface-950 p-8">
-    <div class="max-w-5xl mx-auto">
-      <h1 class="text-3xl font-bold text-surface-900 dark:text-surface-0">Dashboard</h1>
-      <p class="mt-2 text-surface-600 dark:text-surface-300">
-        Phase 1 — 個人化儀表板實作待完成
-      </p>
-    </div>
+  <div>
+    <h1 class="text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-50">儀表板</h1>
+    <p class="mt-2 text-sm text-stone-600 dark:text-stone-400">
+      Phase 1 — 個人化儀表板實作待完成
+    </p>
   </div>
 </template>
 
