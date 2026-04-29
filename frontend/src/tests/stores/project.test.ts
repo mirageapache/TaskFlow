@@ -181,4 +181,92 @@ describe('useProjectStore', () => {
     const store = useProjectStore()
     expect(store.getByWorkspace('not-loaded')).toEqual([])
   })
+
+  describe('getById / fetchById', () => {
+    it('getById 從 workspace 桶找到 project', async () => {
+      vi.mocked(client.get).mockResolvedValueOnce({ data: paginated(projectsW1) })
+      const store = useProjectStore()
+      await store.fetchByWorkspace('w1')
+      expect(store.getById('p1')?.id).toBe('p1')
+      expect(store.getById('not-exists')).toBeNull()
+    })
+
+    it('fetchById 已快取時不打 API', async () => {
+      vi.mocked(client.get).mockResolvedValueOnce({ data: paginated(projectsW1) })
+      const store = useProjectStore()
+      await store.fetchByWorkspace('w1')
+      vi.mocked(client.get).mockClear()
+
+      const result = await store.fetchById('p1')
+
+      expect(client.get).not.toHaveBeenCalled()
+      expect(result.id).toBe('p1')
+    })
+
+    it('fetchById 未快取時 GET /projects/:id/', async () => {
+      const detail = { ...projectsW1[0] }
+      vi.mocked(client.get).mockResolvedValueOnce({ data: detail })
+
+      const store = useProjectStore()
+      const result = await store.fetchById('p1')
+
+      expect(client.get).toHaveBeenCalledWith('/projects/p1/')
+      expect(result).toEqual(detail)
+      expect(store.getById('p1')).toEqual(detail)
+    })
+  })
+
+  describe('fetchStatuses / getStatuses', () => {
+    const statuses = [
+      {
+        id: 's1',
+        name: '待辦',
+        color: '#A8A29E',
+        order: 0,
+        is_completed: false,
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 's2',
+        name: '進行中',
+        color: '#2563EB',
+        order: 1,
+        is_completed: false,
+        created_at: '',
+        updated_at: '',
+      },
+    ]
+
+    it('fetchStatuses 帶 projectId 取看板欄位、依 order 排序快取', async () => {
+      // 後端順序故意亂序，store 排序
+      vi.mocked(client.get).mockResolvedValueOnce({
+        data: paginated([statuses[1], statuses[0]]),
+      })
+      const store = useProjectStore()
+      await store.fetchStatuses('p1')
+
+      expect(client.get).toHaveBeenCalledWith('/projects/p1/statuses/')
+      expect(store.getStatuses('p1').map((s) => s.id)).toEqual(['s1', 's2'])
+    })
+
+    it('已 loaded 時跳過；force 重抓', async () => {
+      vi.mocked(client.get).mockResolvedValueOnce({ data: paginated(statuses) })
+      const store = useProjectStore()
+      await store.fetchStatuses('p1')
+      vi.mocked(client.get).mockClear()
+
+      await store.fetchStatuses('p1')
+      expect(client.get).not.toHaveBeenCalled()
+
+      vi.mocked(client.get).mockResolvedValueOnce({ data: paginated(statuses) })
+      await store.fetchStatuses('p1', { force: true })
+      expect(client.get).toHaveBeenCalledTimes(1)
+    })
+
+    it('getStatuses 未載入時回空陣列', () => {
+      const store = useProjectStore()
+      expect(store.getStatuses('not-loaded')).toEqual([])
+    })
+  })
 })

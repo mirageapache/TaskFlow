@@ -76,20 +76,31 @@
         >
           密碼 <span class="text-red-500">*</span>
         </label>
-        <input
-          id="password"
-          v-model="password"
-          name="password"
-          type="password"
-          autocomplete="new-password"
-          placeholder="至少 8 個字元"
-          class="mt-1 block w-full h-10 px-3 rounded-lg border bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-50 placeholder-stone-400 transition-colors duration-150 focus:outline-none focus:ring-[3px]"
-          :class="
-            passwordError
-              ? 'border-red-500 focus:border-red-500 focus:ring-red-500/25'
-              : 'border-stone-200 dark:border-stone-700 focus:border-orange-500 focus:ring-orange-500/25'
-          "
-        />
+        <div class="mt-1 relative">
+          <input
+            id="password"
+            v-model="password"
+            name="password"
+            :type="passwordVisible ? 'text' : 'password'"
+            autocomplete="new-password"
+            placeholder="至少 8 個字元"
+            class="block w-full h-10 pl-3 pr-10 rounded-lg border bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-50 placeholder-stone-400 transition-colors duration-150 focus:outline-none focus:ring-[3px]"
+            :class="
+              passwordError
+                ? 'border-red-500 focus:border-red-500 focus:ring-red-500/25'
+                : 'border-stone-200 dark:border-stone-700 focus:border-orange-500 focus:ring-orange-500/25'
+            "
+          />
+          <button
+            type="button"
+            data-test="toggle-password"
+            class="absolute inset-y-0 right-0 flex items-center px-3 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50 rounded-r-lg"
+            :aria-label="passwordVisible ? '隱藏密碼' : '顯示密碼'"
+            @click="passwordVisible = !passwordVisible"
+          >
+            <i :class="passwordVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"></i>
+          </button>
+        </div>
         <p v-if="passwordError" class="mt-2 text-xs text-red-600 dark:text-red-400" role="alert">
           {{ passwordError }}
         </p>
@@ -102,20 +113,31 @@
         >
           確認密碼 <span class="text-red-500">*</span>
         </label>
-        <input
-          id="confirmPassword"
-          v-model="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          autocomplete="new-password"
-          placeholder="再輸入一次密碼"
-          class="mt-1 block w-full h-10 px-3 rounded-lg border bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-50 placeholder-stone-400 transition-colors duration-150 focus:outline-none focus:ring-[3px]"
-          :class="
-            confirmPasswordError
-              ? 'border-red-500 focus:border-red-500 focus:ring-red-500/25'
-              : 'border-stone-200 dark:border-stone-700 focus:border-orange-500 focus:ring-orange-500/25'
-          "
-        />
+        <div class="mt-1 relative">
+          <input
+            id="confirmPassword"
+            v-model="confirmPassword"
+            name="confirmPassword"
+            :type="confirmPasswordVisible ? 'text' : 'password'"
+            autocomplete="new-password"
+            placeholder="再輸入一次密碼"
+            class="block w-full h-10 pl-3 pr-10 rounded-lg border bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-50 placeholder-stone-400 transition-colors duration-150 focus:outline-none focus:ring-[3px]"
+            :class="
+              confirmPasswordError
+                ? 'border-red-500 focus:border-red-500 focus:ring-red-500/25'
+                : 'border-stone-200 dark:border-stone-700 focus:border-orange-500 focus:ring-orange-500/25'
+            "
+          />
+          <button
+            type="button"
+            data-test="toggle-confirm-password"
+            class="absolute inset-y-0 right-0 flex items-center px-3 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50 rounded-r-lg"
+            :aria-label="confirmPasswordVisible ? '隱藏密碼' : '顯示密碼'"
+            @click="confirmPasswordVisible = !confirmPasswordVisible"
+          >
+            <i :class="confirmPasswordVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"></i>
+          </button>
+        </div>
         <p
           v-if="confirmPasswordError"
           class="mt-2 text-xs text-red-600 dark:text-red-400"
@@ -165,13 +187,19 @@ import { toTypedSchema } from '@vee-validate/zod'
 
 import { RegisterSchema } from '@/schemas/auth'
 import { useAuthStore } from '@/stores/auth'
+import { parseApiError } from '@/utils/api-errors'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const apiError = ref<string | null>(null)
+const passwordVisible = ref(false)
+const confirmPasswordVisible = ref(false)
 
-const { handleSubmit, isSubmitting } = useForm({
+const KNOWN_FIELDS = ['email', 'username', 'password', 'confirmPassword'] as const
+type RegisterField = (typeof KNOWN_FIELDS)[number]
+
+const { handleSubmit, isSubmitting, setFieldError } = useForm({
   validationSchema: toTypedSchema(RegisterSchema),
   initialValues: { email: '', username: '', password: '', confirmPassword: '' },
 })
@@ -188,15 +216,15 @@ const onSubmit = handleSubmit(async (values) => {
     await authStore.register(values.email, values.username, values.password)
     await router.push('/dashboard')
   } catch (err: unknown) {
-    apiError.value = extractError(err)
+    const { banner, fieldErrors } = parseApiError(err, [...KNOWN_FIELDS])
+    for (const [field, message] of Object.entries(fieldErrors)) {
+      setFieldError(field as RegisterField, message)
+    }
+    if (banner) {
+      apiError.value = banner
+    } else if (Object.keys(fieldErrors).length === 0) {
+      apiError.value = '註冊失敗，請稍後再試'
+    }
   }
 })
-
-function extractError(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const r = (err as { response?: { data?: { detail?: string } } }).response
-    if (r?.data?.detail) return r.data.detail
-  }
-  return '註冊失敗，請稍後再試'
-}
 </script>

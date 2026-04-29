@@ -164,5 +164,21 @@ docker compose -f docker-compose.dev.yml up --build
 - 後端：[http://localhost:8000](http://localhost:8000)
 - 前端：[http://localhost:5273](http://localhost:5273)
 
+### 修改依賴後必須 rebuild
+
+`docker-compose.dev.yml` 只把 source code 用 volume 掛進容器，**Python / npm 套件是裝在 image 裡**。當以下檔案異動時，必須重 build 對應的 service，否則容器內仍是舊套件清單，啟動時可能 `ModuleNotFoundError`：
+
+- `backend/requirements.txt` 改了 → `docker compose -f docker-compose.dev.yml up -d --build backend`
+- `frontend/package.json` 改了 → `docker compose -f docker-compose.dev.yml up -d --build frontend`
+
+修完後跑一次健康檢查確認後端正常：
+
+```bash
+curl http://localhost:8000/api/v1/health/
+# {"status":"ok","db":"ok"}
+```
+
+> **症狀提示**：若瀏覽器看到 `net::ERR_EMPTY_RESPONSE`，先看 `docker logs taskflow-backend-1`。Django runserver 的 autoreloader 在啟動時 import 失敗會卡在「等檔案變更」狀態，container 顯示 Up 但 HTTP 沒在服務 — 多半就是 image 沒跟著 requirements 重 build。
+
 ---
 

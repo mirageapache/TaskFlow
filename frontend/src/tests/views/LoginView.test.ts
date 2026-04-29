@@ -149,4 +149,19 @@ describe('LoginView', () => {
     const link = wrapper.find('a[href="/register"]')
     expect(link.exists()).toBe(true)
   })
+
+  it('密碼顯示切換：預設 type=password，點眼睛切到 text，再點切回 password', async () => {
+    const wrapper = await mountLogin(buildRouter())
+    const passwordInput = wrapper.find('input#password')
+    const toggle = wrapper.find('[data-test="toggle-password"]')
+
+    expect(toggle.exists()).toBe(true)
+    expect(passwordInput.attributes('type')).toBe('password')
+
+    await toggle.trigger('click')
+    expect(passwordInput.attributes('type')).toBe('text')
+
+    await toggle.trigger('click')
+    expect(passwordInput.attributes('type')).toBe('password')
+  })
 })

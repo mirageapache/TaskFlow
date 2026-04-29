@@ -125,7 +125,7 @@ describe('RegisterView', () => {
     expect(pushSpy).toHaveBeenCalledWith('/dashboard')
   })
 
-  it('註冊 API 失敗：顯示後端錯誤訊息、不導頁', async () => {
+  it('註冊 API 失敗（detail）：顯示後端通用錯誤訊息、不導頁', async () => {
     const err = new Error('Email taken') as Error & { response?: unknown }
     err.response = { status: 400, data: { detail: '此 Email 已註冊' } }
     vi.mocked(client.post).mockRejectedValueOnce(err)
@@ -145,11 +145,79 @@ describe('RegisterView', () => {
     expect(pushSpy).not.toHaveBeenCalledWith('/dashboard')
   })
 
+  it('註冊 API 回傳欄位驗證錯誤：訊息顯示在對應欄位下、不顯示制式 banner', async () => {
+    const err = new Error('400') as Error & { response?: unknown }
+    err.response = { status: 400, data: { password: ['這個密碼太常見了。'] } }
+    vi.mocked(client.post).mockRejectedValueOnce(err)
+
+    const wrapper = await mountRegister(buildRouter())
+
+    await wrapper.find('input[type="email"]').setValue('a@b.com')
+    await wrapper.find('input[name="username"]').setValue('alice')
+    await wrapper.find('input[name="password"]').setValue('password')
+    await wrapper.find('input[name="confirmPassword"]').setValue('password')
+
+    await submitAndFlush(wrapper)
+
+    // 訊息應顯示
+    expect(wrapper.text()).toContain('這個密碼太常見了。')
+    // 不應該顯示制式 fallback 訊息
+    expect(wrapper.text()).not.toContain('註冊失敗，請稍後再試')
+  })
+
+  it('註冊 API 多欄位錯誤：每個欄位下顯示對應訊息', async () => {
+    const err = new Error('400') as Error & { response?: unknown }
+    err.response = {
+      status: 400,
+      data: {
+        email: ['Email 已存在'],
+        username: ['此使用者名稱已被使用'],
+      },
+    }
+    vi.mocked(client.post).mockRejectedValueOnce(err)
+
+    const wrapper = await mountRegister(buildRouter())
+
+    await wrapper.find('input[type="email"]').setValue('dup@b.com')
+    await wrapper.find('input[name="username"]').setValue('taken')
+    await wrapper.find('input[name="password"]').setValue('StrongPwd1')
+    await wrapper.find('input[name="confirmPassword"]').setValue('StrongPwd1')
+
+    await submitAndFlush(wrapper)
+
+    expect(wrapper.text()).toContain('Email 已存在')
+    expect(wrapper.text()).toContain('此使用者名稱已被使用')
+  })
+
   it('提供「前往登入」連結指向 /login', async () => {
     const router = buildRouter()
     const wrapper = await mountRegister(router)
 
     const link = wrapper.find('a[href="/login"]')
     expect(link.exists()).toBe(true)
+  })
+
+  it('密碼欄顯示切換：預設 type=password，點眼睛切到 text 並切回', async () => {
+    const wrapper = await mountRegister(buildRouter())
+    const passwordInput = wrapper.find('input#password')
+    const toggle = wrapper.find('[data-test="toggle-password"]')
+
+    expect(passwordInput.attributes('type')).toBe('password')
+    await toggle.trigger('click')
+    expect(passwordInput.attributes('type')).toBe('text')
+    await toggle.trigger('click')
+    expect(passwordInput.attributes('type')).toBe('password')
+  })
+
+  it('確認密碼欄顯示切換：與密碼欄獨立切換', async () => {
+    const wrapper = await mountRegister(buildRouter())
+    const passwordInput = wrapper.find('input#password')
+    const confirmInput = wrapper.find('input#confirmPassword')
+
+    await wrapper.find('[data-test="toggle-confirm-password"]').trigger('click')
+
+    // 確認密碼切到 text，但密碼欄仍為 password（兩個切換獨立）
+    expect(confirmInput.attributes('type')).toBe('text')
+    expect(passwordInput.attributes('type')).toBe('password')
   })
 })

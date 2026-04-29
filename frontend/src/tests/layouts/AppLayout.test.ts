@@ -110,6 +110,75 @@ describe('AppLayout', () => {
     expect(pushSpy).toHaveBeenCalledWith('/login')
   })
 
+  it('Sidebar 撐滿 viewport 高度（sticky + h-[calc(100vh-3.5rem)]）', async () => {
+    const wrapper = await mountLayout(buildRouter())
+    const sidebar = wrapper.find('[data-test="sidebar"]')
+    expect(sidebar.exists()).toBe(true)
+    const cls = sidebar.classes()
+    expect(cls).toContain('sticky')
+    // 高度撐滿 viewport - topbar 56px
+    expect(cls.some((c) => c.includes('h-[calc(100vh-3.5rem)]'))).toBe(true)
+  })
+
+  it('Sidebar 上方顯示目前工作區名稱（workspace store 有資料時）', async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({
+      data: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          {
+            id: 'w1',
+            name: '個人工作區',
+            description: '',
+            avatar_url: null,
+            owner: 'u1',
+            created_at: '',
+            updated_at: '',
+          },
+        ],
+      },
+    })
+
+    const wrapper = await mountLayout(buildRouter())
+    await flushPromises()
+
+    const header = wrapper.find('[data-test="workspace-header"]')
+    expect(header.exists()).toBe(true)
+    expect(header.text()).toContain('個人工作區')
+  })
+
+  it('Sidebar 上方在工作區尚未載入時顯示 placeholder', async () => {
+    // 不設置 mock → fetchAll 會嘗試但失敗，store 維持空 list
+    vi.mocked(client.get).mockRejectedValueOnce(new Error('not loaded'))
+    const wrapper = await mountLayout(buildRouter())
+    await flushPromises()
+
+    const header = wrapper.find('[data-test="workspace-header"]')
+    expect(header.exists()).toBe(true)
+    // placeholder 文字
+    expect(header.text()).toContain('工作區')
+  })
+
+  it('Sidebar 收合按鈕：點擊後 sidebar 變窄（w-16），再點變寬（w-60）', async () => {
+    vi.mocked(client.get).mockResolvedValueOnce({
+      data: { count: 0, next: null, previous: null, results: [] },
+    })
+    const wrapper = await mountLayout(buildRouter())
+    await flushPromises()
+
+    const sidebar = wrapper.find('[data-test="sidebar"]')
+    expect(sidebar.classes()).toContain('w-60')
+
+    await wrapper.find('[data-test="sidebar-toggle"]').trigger('click')
+    expect(sidebar.classes()).toContain('w-16')
+    expect(sidebar.classes()).not.toContain('w-60')
+
+    // 收合狀態下按鈕仍存在（位置可能不同），再點展開
+    await wrapper.find('[data-test="sidebar-toggle"]').trigger('click')
+    expect(sidebar.classes()).toContain('w-60')
+  })
+
   it('登出 API 失敗仍清除前端 session 並導 /login', async () => {
     vi.mocked(client.post).mockRejectedValueOnce(new Error('network'))
 

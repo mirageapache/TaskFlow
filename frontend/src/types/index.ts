@@ -42,3 +42,46 @@ export interface Paginated<T> {
   previous: string | null
   results: T[]
 }
+
+export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low'
+
+export interface Task {
+  id: string
+  /** project FK（UUID） */
+  project: string
+  parent_task: string | null
+  /** 看板欄位 FK（UUID）— 寫入時用 status_id */
+  status: string
+  /** 建立者 UUID */
+  creator: string
+  title: string
+  description: string
+  priority: TaskPriority
+  start_date: string | null
+  due_date: string | null
+  estimated_hours: number | null
+  order: number
+  assignees: User[]
+  /** tag FK 陣列（UUID） */
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectStatus {
+  id: string
+  name: string
+  color: string
+  order: number
+  is_completed: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Tag {
+  id: string
+  name: string
+  color: string
+  created_at: string
+  updated_at: string
+}

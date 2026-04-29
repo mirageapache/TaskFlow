@@ -174,6 +174,7 @@ import { useRoute } from 'vue-router'
 
 import { useProjectStore } from '@/stores/project'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { parseApiError } from '@/utils/api-errors'
 
 const route = useRoute()
 const projectStore = useProjectStore()
@@ -222,7 +223,9 @@ async function onCreate() {
     })
     cancelCreate()
   } catch (err) {
-    createError.value = extractError(err)
+    const { banner, fieldErrors } = parseApiError(err, ['name', 'description'])
+    const fieldMsgs = Object.entries(fieldErrors).map(([f, m]) => `${f}：${m}`)
+    createError.value = [banner, ...fieldMsgs].filter(Boolean).join('；') || '建立失敗，請稍後再試'
   } finally {
     creating.value = false
   }
@@ -233,13 +236,5 @@ function cancelCreate() {
   newName.value = ''
   newDescription.value = ''
   createError.value = null
-}
-
-function extractError(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const r = (err as { response?: { data?: { detail?: string } } }).response
-    if (r?.data?.detail) return r.data.detail
-  }
-  return '建立失敗，請稍後再試'
 }
 </script>

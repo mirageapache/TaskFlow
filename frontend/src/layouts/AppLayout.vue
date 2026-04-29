@@ -75,12 +75,54 @@
     </header>
 
     <div class="flex">
-      <!-- Sidebar (desktop, collapsible) -->
+      <!-- Sidebar (desktop, collapsible, sticky 撐滿 viewport) -->
       <aside
-        class="hidden lg:flex flex-col bg-white dark:bg-stone-800 border-r border-stone-200 dark:border-stone-700 transition-[width] duration-200"
+        data-test="sidebar"
+        class="hidden lg:flex flex-col sticky top-14 h-[calc(100vh-3.5rem)] bg-white dark:bg-stone-800 border-r border-stone-200 dark:border-stone-700 transition-[width] duration-200"
         :class="sidebarCollapsed ? 'w-16' : 'w-60'"
       >
-        <nav class="flex-1 p-3 space-y-1">
+        <!-- 工作區資訊 + 收合按鈕 -->
+        <div
+          data-test="workspace-header"
+          class="px-3 py-3 border-b border-stone-200 dark:border-stone-700 flex items-center gap-2"
+          :class="sidebarCollapsed ? 'justify-center' : ''"
+        >
+          <span
+            class="w-7 h-7 rounded-md bg-orange-100 dark:bg-orange-950/40 text-orange-600 inline-flex items-center justify-center shrink-0"
+          >
+            <i class="pi pi-th-large text-sm"></i>
+          </span>
+          <span
+            v-if="!sidebarCollapsed"
+            class="flex-1 text-sm font-medium text-stone-900 dark:text-stone-50 truncate"
+            :title="currentWorkspaceName"
+          >
+            {{ currentWorkspaceName }}
+          </span>
+          <button
+            v-if="!sidebarCollapsed"
+            data-test="sidebar-toggle"
+            class="p-1.5 rounded text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700"
+            title="收合"
+            aria-label="收合側邊選單"
+            @click="sidebarCollapsed = true"
+          >
+            <i class="pi pi-angle-double-left text-sm"></i>
+          </button>
+        </div>
+        <!-- 收合狀態下的展開按鈕（占位於工作區圖示下方） -->
+        <button
+          v-if="sidebarCollapsed"
+          data-test="sidebar-toggle"
+          class="mx-2 mt-2 p-1.5 rounded text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-700 inline-flex justify-center"
+          title="展開"
+          aria-label="展開側邊選單"
+          @click="sidebarCollapsed = false"
+        >
+          <i class="pi pi-angle-double-right text-sm"></i>
+        </button>
+
+        <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
           <RouterLink
             v-for="item in navItems"
             :key="item.to"
@@ -93,14 +135,6 @@
             <span v-if="!sidebarCollapsed" class="truncate">{{ item.label }}</span>
           </RouterLink>
         </nav>
-        <button
-          class="border-t border-stone-200 dark:border-stone-700 p-3 text-sm text-stone-500 hover:bg-stone-50 dark:hover:bg-stone-700"
-          :title="sidebarCollapsed ? '展開' : '收合'"
-          aria-label="切換側邊選單寬度"
-          @click="sidebarCollapsed = !sidebarCollapsed"
-        >
-          <i :class="['pi', sidebarCollapsed ? 'pi-angle-right' : 'pi-angle-left']"></i>
-        </button>
       </aside>
 
       <!-- Mobile drawer -->
@@ -158,9 +192,11 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
+import { useWorkspaceStore } from '@/stores/workspace'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const workspaceStore = useWorkspaceStore()
 
 const sidebarCollapsed = ref(false)
 const mobileNavOpen = ref(false)
@@ -169,6 +205,12 @@ const userMenuRef = ref<HTMLElement | null>(null)
 
 const user = computed(() => authStore.user)
 const userInitial = computed(() => user.value?.username?.[0]?.toUpperCase() ?? '?')
+
+/**
+ * 目前工作區名稱：取 store 中第一個 workspace；尚未載入或為空時顯示 placeholder。
+ * 後續若實作「使用者預設工作區」可改為讀 user.default_workspace_id 對應項目。
+ */
+const currentWorkspaceName = computed(() => workspaceStore.list[0]?.name ?? '個人工作區')
 
 const navItems = [
   { to: '/dashboard', label: '儀表板', icon: 'pi-home' },
@@ -195,6 +237,10 @@ function handleDocClick(e: MouseEvent) {
     userMenuOpen.value = false
   }
 }
-onMounted(() => document.addEventListener('click', handleDocClick))
+onMounted(() => {
+  document.addEventListener('click', handleDocClick)
+  // 確保 sidebar 上的工作區名稱可顯示；錯誤交給 store.error，不阻塞 UI
+  workspaceStore.fetchAll().catch(() => {})
+})
 onUnmounted(() => document.removeEventListener('click', handleDocClick))
 </script>
