@@ -120,6 +120,8 @@ describe('Axios client interceptors', () => {
 
   it('refresh 失敗：清除 session 並 push /login', async () => {
     localStorage.setItem('access_token', 'expired')
+    // 設定路徑為非公開頁
+    window.history.pushState({}, '', '/dashboard')
 
     setAdapter(async (config) => {
       if (config.url === '/protected/') {
@@ -134,6 +136,29 @@ describe('Axios client interceptors', () => {
     await expect(client.get('/protected/')).rejects.toBeDefined()
     expect(localStorage.getItem('access_token')).toBeNull()
     expect(routerPushMock).toHaveBeenCalledWith('/login')
+  })
+
+  it('refresh 失敗 + 已在公開頁（/register、/login、/oauth/callback）：清除 session 但不 push /login', async () => {
+    setAdapter(async (config) => {
+      if (config.url === '/protected/') {
+        throw makeAxiosError(config, 401)
+      }
+      if (config.url === '/auth/refresh/') {
+        throw makeAxiosError(config, 401)
+      }
+      return makeResponse(config, 200, 'should-not-reach')
+    })
+
+    for (const publicPath of ['/register', '/login', '/oauth/callback']) {
+      localStorage.setItem('access_token', 'expired')
+      routerPushMock.mockClear()
+      window.history.pushState({}, '', publicPath)
+
+      await expect(client.get('/protected/')).rejects.toBeDefined()
+
+      expect(localStorage.getItem('access_token')).toBeNull()
+      expect(routerPushMock).not.toHaveBeenCalled()
+    }
   })
 
   it('/auth/refresh/ 自身回 401 不會觸發遞迴 refresh', async () => {

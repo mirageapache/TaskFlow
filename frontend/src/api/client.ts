@@ -58,13 +58,27 @@ function flushQueue(error: unknown, token: string | null) {
 }
 
 /**
- * Refresh 失敗時清除前端狀態並導向 /login。
+ * 公開頁（不需登入）的 path prefix。當使用者已經在這些頁時，refresh 失敗
+ * 不應該再強行重導 — 否則會造成「打開 /register 卻被踢回 /login」的 race。
+ */
+const PUBLIC_PATH_PREFIXES = ['/login', '/register', '/oauth/callback']
+
+function isOnPublicPage(): boolean {
+  const path = window.location.pathname
+  return PUBLIC_PATH_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
+}
+
+/**
+ * Refresh 失敗時清除前端狀態。除非使用者已經在公開頁，否則導向 /login。
  * 動態 import 避免模組循環依賴。
  */
 async function handleRefreshFailure() {
   const { useAuthStore } = await import('@/stores/auth')
-  const { default: router } = await import('@/router')
   useAuthStore().clearSession()
+
+  if (isOnPublicPage()) return
+
+  const { default: router } = await import('@/router')
   router.push('/login')
 }
 
