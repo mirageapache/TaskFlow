@@ -38,6 +38,22 @@ def auth_client(api_client, user):
     return api_client
 
 
+@pytest.fixture
+def jwt_auth_client(api_client, user):
+    """走真實 JWT 簽發流程的 API Client（給整合測試驗證 SimpleJWT 串接是否正確）。
+
+    與 `auth_client`（用 force_authenticate 跳過 token 驗證）的差異：
+    - 真實透過 SimpleJWT 簽發 access token、塞 Authorization header
+    - 跑得到 JWTAuthentication.authenticate() 的所有路徑（過期 / 黑名單 / 無效簽名）
+
+    一般 view 測試請繼續用 auth_client（更快）；只有要驗證認證機制本身的測試才用這個。
+    """
+    from rest_framework_simplejwt.tokens import RefreshToken
+    refresh = RefreshToken.for_user(user)
+    api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {refresh.access_token}')
+    return api_client
+
+
 from tests.factories import WorkspaceFactory, ProjectFactory, ProjectStatusFactory, TaskFactory
 
 

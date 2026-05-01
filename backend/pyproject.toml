@@ -1,0 +1,32 @@
+[tool.coverage.run]
+# 量測 apps/ 的程式碼，並啟用 branch coverage（除了 line 還看條件分支）
+source = ["apps"]
+branch = true
+omit = [
+    "*/migrations/*",
+    "*/__init__.py",
+    "*/apps.py",
+    "*/admin.py",
+    "*/tests/*",
+    "config/*",
+    "manage.py",
+    "venv/*",
+]
+
+[tool.coverage.report]
+# 報告精度與排除規則
+precision = 1
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    # Django/DRF 樣板程式（無業務邏輯）
+    "def __str__\\(self\\)",
+    "def __repr__\\(self\\)",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
