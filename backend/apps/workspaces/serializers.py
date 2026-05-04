@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from apps.tasks.models import Tag
 from apps.users.serializers import UserSerializer
-from apps.workspaces.models import Workspace, WorkspaceMember
+from apps.workspaces.models import MembershipAuditLog, Workspace, WorkspaceMember
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -42,3 +42,23 @@ class TagSerializer(serializers.ModelSerializer):
         model = Tag
         fields = ['id', 'name', 'color', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class MembershipAuditLogSerializer(serializers.ModelSerializer):
+    """稽核紀錄唯讀輸出（Phase 2）。
+
+    actor / target_user 用 UserSerializer 巢狀；scope_id 序列化為字串方便前端比對。
+    """
+    actor = UserSerializer(read_only=True)
+    target_user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = MembershipAuditLog
+        fields = [
+            'id',
+            'actor', 'target_user',
+            'action', 'scope_type', 'scope_id',
+            'old_role', 'new_role',
+            'changed_at',
+        ]
+        read_only_fields = fields

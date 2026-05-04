@@ -4,6 +4,7 @@ from django.urls import path
 from apps.workspaces.views import (
     TagDetailView,
     TagListCreateView,
+    WorkspaceAuditLogListView,
     WorkspaceDetailView,
     WorkspaceListCreateView,
     WorkspaceMemberDetailView,
@@ -33,5 +34,10 @@ urlpatterns = [
         '<uuid:workspace_id>/tags/<uuid:pk>/',
         TagDetailView.as_view(),
         name='workspace-tag-detail',
+    ),
+    path(
+        '<uuid:workspace_id>/audit-logs/',
+        WorkspaceAuditLogListView.as_view(),
+        name='workspace-audit-logs',
     ),
 ]
