@@ -5,12 +5,50 @@ Signal handler 改為呼叫這些 async task，將通知建立移到背景執行
 
 每個 task 接收純量參數（UUID string / dict），不傳 Django model instance，
 確保可正確 JSON 序列化。
+
+建立通知後，透過 Channel Layer 即時推送給在線的 WebSocket client。
 """
 import logging
 
 from celery import shared_task
 
 logger = logging.getLogger(__name__)
+
+
+def _push_notification_to_ws(notification):
+    """透過 Channel Layer 將通知推送給對應使用者的 WebSocket 連線。
+
+    在同步 context（Celery worker）中使用 async_to_sync 呼叫 channel layer。
+    若 channel layer 不可用（如測試環境），則靜默跳過。
+    """
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        from apps.notifications.consumers import _user_group_name
+
+        channel_layer = get_channel_layer()
+        if channel_layer is None:
+            return
+
+        group_name = _user_group_name(notification.recipient_id)
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'notification.send',
+                'data': {
+                    'id': str(notification.id),
+                    'notif_type': notification.notif_type,
+                    'title': notification.title,
+                    'body': notification.body,
+                    'payload': notification.payload,
+                    'is_read': notification.is_read,
+                    'created_at': notification.created_at.isoformat(),
+                },
+            },
+        )
+    except Exception:
+        # channel layer 推送失敗不應中斷通知建立流程
+        logger.exception('Failed to push notification via WebSocket')
 
 
 @shared_task
@@ -22,13 +60,14 @@ def create_task_assigned_notification(
     """任務被指派時，通知被指派者。"""
     from apps.notifications.models import Notification
 
-    Notification.objects.create(
+    notif = Notification.objects.create(
         recipient_id=recipient_id,
         notif_type=Notification.NotifType.TASK_ASSIGNED,
         title=f'你被指派了任務「{task_title}」',
         body='',
         payload={'task_id': task_id},
     )
+    _push_notification_to_ws(notif)
 
 
 @shared_task
@@ -64,7 +103,9 @@ def create_task_comment_notifications(
         )
         for uid in assignee_ids
     ]
-    Notification.objects.bulk_create(notifications)
+    created = Notification.objects.bulk_create(notifications)
+    for notif in created:
+        _push_notification_to_ws(notif)
 
 
 @shared_task
@@ -101,7 +142,9 @@ def create_task_status_changed_notifications(
         )
         for uid in assignee_ids
     ]
-    Notification.objects.bulk_create(notifications)
+    created = Notification.objects.bulk_create(notifications)
+    for notif in created:
+        _push_notification_to_ws(notif)
 
 
 @shared_task
@@ -113,10 +156,11 @@ def create_workspace_invite_notification(
     """被邀請加入工作區時通知新成員。"""
     from apps.notifications.models import Notification
 
-    Notification.objects.create(
+    notif = Notification.objects.create(
         recipient_id=recipient_id,
         notif_type=Notification.NotifType.WORKSPACE_INVITE,
         title=f'你被邀請加入工作區「{workspace_name}」',
         body='',
         payload={'workspace_id': workspace_id},
     )
+    _push_notification_to_ws(notif)

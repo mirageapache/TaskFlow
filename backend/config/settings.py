@@ -28,6 +28,7 @@ THIRD_PARTY_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
+    'channels',
 ]
 
 LOCAL_APPS = [
@@ -189,3 +190,21 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = not bool(REDIS_URL)  # 無 Redis 時同步執行，方便開發與測試
 CELERY_TASK_EAGER_PROPAGATES = True  # eager 模式下例外直接拋出，方便偵錯
+
+# ─── Django Channels ─────────────────────────────────────────────────────
+# 有 Redis 時使用 RedisChannelLayer，無 Redis 時 fallback 到 InMemoryChannelLayer
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
