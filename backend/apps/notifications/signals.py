@@ -10,13 +10,18 @@
 通用規則：
 - actor 取自 thread-local（apps.users.middleware.get_current_user）
 - 自我操作（actor == recipient）不發通知，避免噪音
-- 重複的 ProjectStatus / WorkspaceMember Signal 不會在這裡寫稽核紀錄
-  （那是 apps.workspaces.signals 的職責）
+- 通知建立委派給 Celery task 非同步執行（apps.notifications.tasks），
+  避免在 HTTP request 中阻塞。Celery eager 模式下仍為同步。
 """
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from apps.notifications.models import Notification
+from apps.notifications.tasks import (
+    create_task_assigned_notification,
+    create_task_comment_notifications,
+    create_task_status_changed_notifications,
+    create_workspace_invite_notification,
+)
 from apps.tasks.models import Task, TaskAssignee, TaskComment
 from apps.users.middleware import get_current_user
 from apps.workspaces.models import WorkspaceMember
@@ -34,12 +39,10 @@ def notify_task_assigned(sender, instance, created, **kwargs):
     if actor and recipient.id == actor.id:
         return  # 自己指派自己不通知
 
-    Notification.objects.create(
-        recipient=recipient,
-        notif_type=Notification.NotifType.TASK_ASSIGNED,
-        title=f'你被指派了任務「{instance.task.title}」',
-        body='',
-        payload={'task_id': str(instance.task_id)},
+    create_task_assigned_notification.delay(
+        recipient_id=str(recipient.id),
+        task_id=str(instance.task_id),
+        task_title=instance.task.title,
     )
 
 
@@ -50,30 +53,14 @@ def notify_task_assigned(sender, instance, created, **kwargs):
 def notify_task_comment(sender, instance, created, **kwargs):
     if not created:
         return
-    actor = instance.author
-    task = instance.task
 
-    # 通知所有 assignees（排除留言者本人；author 為 None 時不排除任何人）
-    qs = TaskAssignee.objects.filter(task=task)
-    if actor is not None:
-        qs = qs.exclude(user_id=actor.id)
-    assignee_ids = qs.values_list('user_id', flat=True)
-
-    notifications = [
-        Notification(
-            recipient_id=uid,
-            notif_type=Notification.NotifType.TASK_COMMENT,
-            title=f'「{task.title}」有新留言',
-            body=instance.content[:120],
-            payload={
-                'task_id': str(task.id),
-                'comment_id': str(instance.id),
-            },
-        )
-        for uid in assignee_ids
-    ]
-    if notifications:
-        Notification.objects.bulk_create(notifications)
+    create_task_comment_notifications.delay(
+        task_id=str(instance.task_id),
+        task_title=instance.task.title,
+        comment_id=str(instance.id),
+        comment_preview=instance.content[:120],
+        exclude_user_id=str(instance.author_id) if instance.author_id else None,
+    )
 
 
 # ────────────────  Task status change ────────────────
@@ -105,29 +92,15 @@ def notify_task_status_changed(sender, instance, created, **kwargs):
         return  # 沒換 status 就不通知
 
     actor = get_current_user()
-    actor_id = actor.id if actor else None
+    actor_id = str(actor.id) if actor else None
 
-    assignee_ids = TaskAssignee.objects.filter(task=instance).exclude(
-        user_id=actor_id,
-    ).values_list('user_id', flat=True) if actor_id else \
-        TaskAssignee.objects.filter(task=instance).values_list('user_id', flat=True)
-
-    notifications = [
-        Notification(
-            recipient_id=uid,
-            notif_type=Notification.NotifType.TASK_STATUS_CHANGED,
-            title=f'「{instance.title}」狀態已變更',
-            body='',
-            payload={
-                'task_id': str(instance.id),
-                'old_status_id': str(old_status_id) if old_status_id else None,
-                'new_status_id': str(instance.status_id) if instance.status_id else None,
-            },
-        )
-        for uid in assignee_ids
-    ]
-    if notifications:
-        Notification.objects.bulk_create(notifications)
+    create_task_status_changed_notifications.delay(
+        task_id=str(instance.id),
+        task_title=instance.title,
+        old_status_id=str(old_status_id) if old_status_id else None,
+        new_status_id=str(instance.status_id) if instance.status_id else None,
+        exclude_user_id=actor_id,
+    )
 
 
 # ────────────────  Workspace invite ────────────────
@@ -142,10 +115,9 @@ def notify_workspace_invite(sender, instance, created, **kwargs):
     if actor and recipient.id == actor.id:
         return
 
-    Notification.objects.create(
-        recipient=recipient,
-        notif_type=Notification.NotifType.WORKSPACE_INVITE,
-        title=f'你被邀請加入工作區「{instance.workspace.name}」',
-        body='',
-        payload={'workspace_id': str(instance.workspace_id)},
+    create_workspace_invite_notification.delay(
+        recipient_id=str(recipient.id),
+        workspace_id=str(instance.workspace_id),
+        workspace_name=instance.workspace.name,
     )
+

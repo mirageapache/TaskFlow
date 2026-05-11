@@ -176,3 +176,16 @@ PRESIGNED_URL_EXPIRES_SECONDS = 60 * 15  # 15 分鐘
 # 本專案改用條件唯一約束（WHERE deleted_at IS NULL），允許軟刪除後相同 email 重新註冊
 # 詳見 .doc/taskflow-backend.md §5.2
 SILENCED_SYSTEM_CHECKS = ['auth.E003']
+
+# ─── Redis & Celery ──────────────────────────────────────────────────────
+# REDIS_URL 留空時 Celery 自動 fallback 到 memory://（不需 Redis 即可開發）
+REDIS_URL = config('REDIS_URL', default='')
+
+CELERY_BROKER_URL = REDIS_URL or 'memory://'
+CELERY_RESULT_BACKEND = REDIS_URL or 'cache+memory://'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_ALWAYS_EAGER = not bool(REDIS_URL)  # 無 Redis 時同步執行，方便開發與測試
+CELERY_TASK_EAGER_PROPAGATES = True  # eager 模式下例外直接拋出，方便偵錯
