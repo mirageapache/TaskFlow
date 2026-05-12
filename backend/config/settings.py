@@ -208,3 +208,17 @@ else:
             'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
     }
+# ─── Email ────────────────────────────────────────────────────────────────
+# EMAIL_HOST 留空時使用 console backend（開發用，不實際發信）
+EMAIL_HOST = config('EMAIL_HOST', default='')
+if EMAIL_HOST:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+    EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='TaskFlow <noreply@taskflow.local>')
+# 是否啟用 Email 通知（可在 .env 中關閉）
+EMAIL_NOTIFICATIONS_ENABLED = config('EMAIL_NOTIFICATIONS_ENABLED', default=bool(EMAIL_HOST), cast=bool)

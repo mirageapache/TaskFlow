@@ -6,7 +6,9 @@ Signal handler 改為呼叫這些 async task，將通知建立移到背景執行
 每個 task 接收純量參數（UUID string / dict），不傳 Django model instance，
 確保可正確 JSON 序列化。
 
-建立通知後，透過 Channel Layer 即時推送給在線的 WebSocket client。
+建立通知後：
+1. 透過 Channel Layer 即時推送給在線的 WebSocket client
+2. 以 Email 非同步發送通知（若 EMAIL_NOTIFICATIONS_ENABLED）
 """
 import logging
 
@@ -51,6 +53,24 @@ def _push_notification_to_ws(notification):
         logger.exception('Failed to push notification via WebSocket')
 
 
+def _send_email_for_notification(notification):
+    """將 in-app 通知以 Email 發送給收件者（非同步 Celery task）。"""
+    try:
+        from apps.notifications.emails import send_notification_email
+        recipient_email = notification.recipient.email
+        if not recipient_email:
+            return
+        send_notification_email.delay(
+            recipient_email=recipient_email,
+            notif_type=notification.notif_type,
+            title=notification.title,
+            body=notification.body,
+            payload=notification.payload,
+        )
+    except Exception:
+        logger.exception('Failed to dispatch email notification task')
+
+
 @shared_task
 def create_task_assigned_notification(
     recipient_id: str,
@@ -68,6 +88,7 @@ def create_task_assigned_notification(
         payload={'task_id': task_id},
     )
     _push_notification_to_ws(notif)
+    _send_email_for_notification(notif)
 
 
 @shared_task
@@ -106,6 +127,7 @@ def create_task_comment_notifications(
     created = Notification.objects.bulk_create(notifications)
     for notif in created:
         _push_notification_to_ws(notif)
+        _send_email_for_notification(notif)
 
 
 @shared_task
@@ -145,6 +167,7 @@ def create_task_status_changed_notifications(
     created = Notification.objects.bulk_create(notifications)
     for notif in created:
         _push_notification_to_ws(notif)
+        _send_email_for_notification(notif)
 
 
 @shared_task
@@ -164,3 +187,4 @@ def create_workspace_invite_notification(
         payload={'workspace_id': workspace_id},
     )
     _push_notification_to_ws(notif)
+    _send_email_for_notification(notif)
