@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.core.throttling import LoginRateThrottle
 from apps.users.models import User, UserProfile
 from apps.users.serializers import (
     LoginSerializer,
@@ -50,6 +51,7 @@ def _issue_tokens_for(user):
 class RegisterView(APIView):
     """POST /api/v1/auth/register/  — 註冊新帳號並回傳 access token。"""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -73,6 +75,7 @@ class RegisterView(APIView):
 class LoginView(APIView):
     """POST /api/v1/auth/login/  — 帳密登入，發 access token + 設 refresh cookie。"""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={'request': request})
