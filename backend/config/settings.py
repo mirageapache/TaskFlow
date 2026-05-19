@@ -29,6 +29,7 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'django_filters',
     'channels',
+    'drf_spectacular',
 ]
 
 LOCAL_APPS = [
@@ -130,6 +131,7 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'apps.core.exception_handler.custom_exception_handler',
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'PAGE_SIZE': 20,
 }
 
@@ -225,3 +227,27 @@ else:
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='TaskFlow <noreply@taskflow.local>')
 # 是否啟用 Email 通知（可在 .env 中關閉）
 EMAIL_NOTIFICATIONS_ENABLED = config('EMAIL_NOTIFICATIONS_ENABLED', default=bool(EMAIL_HOST), cast=bool)
+
+# ─── drf-spectacular（OpenAPI / Swagger 文件自動產生）─────────────────────────
+# /api/schema/            → OpenAPI 3.0 JSON/YAML
+# /api/schema/swagger-ui/ → 互動式 Swagger UI（可直接在瀏覽器試打 API）
+# /api/schema/redoc/      → ReDoc 文件頁
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'TaskFlow API',
+    'DESCRIPTION': 'TaskFlow 任務協作平台 REST API 文件。所有端點掛載於 /api/v1/ 之下。',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,  # 不在 Swagger UI 內嵌完整 schema，改由獨立端點提供
+    'SCHEMA_PATH_PREFIX': r'/api/v1',
+    'COMPONENT_SPLIT_REQUEST': True,  # request / response schema 分開，避免欄位混淆（如 read_only）
+    'SERVERS': [{'url': '/', 'description': 'Current host'}],
+    'SECURITY': [{'jwtAuth': []}],
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'jwtAuth': {
+                'type': 'http',
+                'scheme': 'bearer',
+                'bearerFormat': 'JWT',
+            }
+        }
+    },
+}

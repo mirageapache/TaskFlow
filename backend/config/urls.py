@@ -9,9 +9,17 @@
 - /api/v1/calendar/      → apps.calendar_events.urls (行程事件 + 重複規則展開)
 - /api/v1/notifications/ → apps.notifications.urls   (通知列表 / 已讀標記)
 - /api/v1/health/        → 健康檢查（無需 JWT，供 Load Balancer 探測）
+- /api/schema/           → OpenAPI 3.0 規格（drf-spectacular）
+- /api/schema/swagger-ui/→ Swagger UI 互動式文件
+- /api/schema/redoc/     → ReDoc 文件頁
 """
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 
 from apps.core.views import health_check
 
@@ -26,4 +34,8 @@ urlpatterns = [
     path('api/v1/calendar/', include('apps.calendar_events.urls')),
     path('api/v1/notifications/', include('apps.notifications.urls')),
     path('api/v1/health/', health_check),
+    # OpenAPI / Swagger UI（drf-spectacular 自動產生）
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
