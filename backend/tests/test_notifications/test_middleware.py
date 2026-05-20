@@ -60,8 +60,9 @@ class TestJWTAuthMiddleware:
 
     async def test_expired_token_rejected(self):
         """過期的 token → 連線被拒。"""
-        from channels.db import database_sync_to_async
         from datetime import timedelta
+
+        from channels.db import database_sync_to_async
         user = await database_sync_to_async(UserFactory)()
         token = AccessToken.for_user(user)
         token.set_exp(lifetime=-timedelta(hours=1))  # 已過期

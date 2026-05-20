@@ -26,7 +26,6 @@ from apps.tasks.models import Task, TaskAssignee, TaskComment
 from apps.users.middleware import get_current_user
 from apps.workspaces.models import WorkspaceMember
 
-
 # ────────────────  Task assignment ────────────────
 
 

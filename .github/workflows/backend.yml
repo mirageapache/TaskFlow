@@ -1,0 +1,129 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install ruff
+        run: pip install "ruff>=0.6,<1.0"
+
+      - name: Ruff check
+        run: ruff check .
+
+  test:
+    name: Test (pytest)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Django system check
+        # 對 Django 設定本身做靜態檢查（INSTALLED_APPS、ROOT_URLCONF、auth 設定等）
+        # SECRET_KEY 給個假值即可，不會真的連 DB
+        env:
+          SECRET_KEY: ci-dummy-secret
+          DEBUG: 'False'
+        run: python manage.py check
+
+      - name: Migration drift check
+        # 偵測「model 改了但 migration 沒產」的情況；--dry-run 不真的寫檔
+        env:
+          SECRET_KEY: ci-dummy-secret
+          DEBUG: 'False'
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run pytest
+        # DB_HOST 留空 → settings 自動 fallback 到 SQLite，CI 不需要外部 DB
+        env:
+          SECRET_KEY: ci-dummy-secret
+          DEBUG: 'False'
+          DB_HOST: ''
+        run: pytest --no-header -ra
+
+      - name: Upload coverage HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-html
+          path: backend/htmlcov/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  build:
+    name: Build sanity (collectstatic + schema)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Collect static
+        # 確認靜態檔 pipeline 沒壞（部署前必跑的步驟）
+        env:
+          SECRET_KEY: ci-dummy-secret
+          DEBUG: 'False'
+        run: python manage.py collectstatic --noinput
+
+      - name: Generate OpenAPI schema
+        # drf-spectacular 產 schema 失敗 = CI 失敗，避免文件與 code 偏離。
+        # 暫不加 --fail-on-warn，因目前部分 view 仍待補 @extend_schema 註解；
+        # 等所有 view 註解補齊後再升級為 strict 模式。
+        env:
+          SECRET_KEY: ci-dummy-secret
+          DEBUG: 'False'
+        run: python manage.py spectacular --file schema.yml --validate
+
+      - name: Upload schema artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-schema
+          path: backend/schema.yml
+          if-no-files-found: warn
+          retention-days: 30

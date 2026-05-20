@@ -12,12 +12,11 @@ Workspace API TDD 測試 — Phase 1
 import pytest
 
 from tests.factories import (
+    TagFactory,
     UserFactory,
     WorkspaceFactory,
     WorkspaceMemberFactory,
-    TagFactory,
 )
-
 
 WORKSPACE_URL = '/api/v1/workspaces/'
 

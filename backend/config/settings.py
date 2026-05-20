@@ -2,8 +2,8 @@
 TaskFlow Django settings — Phase 1 MVP 骨架
 完整規格見 .doc/taskflow-backend.md §4
 """
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
 from decouple import config
 

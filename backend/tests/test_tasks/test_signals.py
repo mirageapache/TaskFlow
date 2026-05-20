@@ -20,7 +20,6 @@ from tests.factories import (
     UserFactory,
 )
 
-
 TASKS_URL = '/api/v1/tasks/'
 
 

@@ -54,7 +54,7 @@ def jwt_auth_client(api_client, user):
     return api_client
 
 
-from tests.factories import WorkspaceFactory, ProjectFactory, ProjectStatusFactory, TaskFactory
+from tests.factories import ProjectFactory, ProjectStatusFactory, TaskFactory, WorkspaceFactory
 
 
 @pytest.fixture

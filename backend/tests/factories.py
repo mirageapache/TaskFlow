@@ -55,7 +55,7 @@ class WorkspaceMemberFactory(DjangoModelFactory):
     role = WorkspaceMember.Role.MEMBER
 
 
-from apps.projects.models import Project, ProjectStatus, ProjectMember
+from apps.projects.models import Project, ProjectMember, ProjectStatus
 
 
 class ProjectFactory(DjangoModelFactory):

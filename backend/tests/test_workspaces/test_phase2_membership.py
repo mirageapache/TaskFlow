@@ -14,7 +14,6 @@ from tests.factories import (
     WorkspaceMemberFactory,
 )
 
-
 WORKSPACE_URL = '/api/v1/workspaces/'
 
 

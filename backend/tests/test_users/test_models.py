@@ -7,7 +7,6 @@ import uuid
 import pytest
 from django.db.utils import IntegrityError
 
-
 # ---------------------------------------------------------------------------
 # BaseModel 通用行為（abstract，透過 User 驗證）
 # ---------------------------------------------------------------------------

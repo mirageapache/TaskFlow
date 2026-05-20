@@ -24,10 +24,9 @@ Consumer 依據認證結果決定是否接受連線，並將使用者加入
     "count": 5
 }
 """
-import json
 
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.contrib.auth.models import AnonymousUser
 
 
@@ -105,6 +104,7 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def _mark_notification_read(self, user, notification_id):
         from django.utils import timezone
+
         from apps.notifications.models import Notification
         Notification.objects.filter(
             pk=notification_id, recipient=user, is_read=False,

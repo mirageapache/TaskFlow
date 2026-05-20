@@ -13,7 +13,6 @@ import pytest
 import yaml
 from django.urls import reverse
 
-
 SCHEMA_URL = '/api/schema/'
 SWAGGER_URL = '/api/schema/swagger-ui/'
 REDOC_URL = '/api/schema/redoc/'

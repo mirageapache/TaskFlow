@@ -30,3 +30,29 @@ exclude_lines = [
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[tool.ruff]
+# 與既有 Django 5 / Python 3.13 環境對齊
+target-version = "py313"
+line-length = 120
+extend-exclude = [
+    "migrations",
+    "venv",
+    "staticfiles",
+    "htmlcov",
+]
+
+[tool.ruff.lint]
+# 啟用 pyflakes(F) + pycodestyle errors(E) + import sort(I) + 升級提示(UP)
+# Django/DRF code 常見的長行、未使用 import、雙引號偏好不一致 → 由 ruff 統一
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",  # line-too-long：依賴 black/格式化處理，避免 churn
+    "B008",  # function-call-in-default-argument：DRF/Django 大量使用 (e.g. models.CharField(default=...))
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F811"]  # 測試常見 fixture import / 同名覆寫
+"tests/factories.py" = ["E402"]  # 刻意按 model 依賴順序穿插 import
+"tests/conftest.py" = ["E402"]   # 同上，避免 model 載入順序問題
+"**/settings.py" = ["F405", "F403"]  # 允許 settings 用 star import 模式（雖然本專案沒用）

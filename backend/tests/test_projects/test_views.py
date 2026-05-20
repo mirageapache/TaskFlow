@@ -20,7 +20,6 @@ from tests.factories import (
     WorkspaceMemberFactory,
 )
 
-
 PROJECTS_URL = '/api/v1/projects/'
 
 

@@ -9,9 +9,9 @@
 """
 import pytest
 
+from apps.projects.models import ProjectMember
 from apps.users.middleware import _set_current_user
 from apps.workspaces.models import MembershipAuditLog, WorkspaceMember
-from apps.projects.models import ProjectMember
 from tests.factories import (
     ProjectFactory,
     ProjectMemberFactory,

@@ -10,7 +10,6 @@ import pytest
 from apps.notifications.models import Notification
 from tests.factories import NotificationFactory, UserFactory
 
-
 NOTIF_URL = '/api/v1/notifications/'
 MARK_ALL_URL = '/api/v1/notifications/mark-all-read/'
 

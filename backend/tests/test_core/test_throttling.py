@@ -9,14 +9,15 @@ Rate Limiting / Throttle TDD 測試
 - AiRateThrottle scope 與 rate 設定
 - 自訂 429 回應格式（中文提示）
 """
-import pytest
 from unittest.mock import patch
+
+import pytest
 from django.core.cache import cache
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 from rest_framework.test import APIClient, APIRequestFactory
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 
 from apps.core.throttling import AiRateThrottle, LoginRateThrottle
 
@@ -198,6 +199,7 @@ class TestCustom429Response:
     def test_exception_handler_formats_throttled(self):
         """custom_exception_handler 對 Throttled 例外產生中文訊息。"""
         from rest_framework.exceptions import Throttled
+
         from apps.core.exception_handler import custom_exception_handler
 
         exc = Throttled(wait=45)
@@ -210,6 +212,7 @@ class TestCustom429Response:
     def test_exception_handler_default_wait(self):
         """wait=None 時預設顯示 60 秒。"""
         from rest_framework.exceptions import Throttled
+
         from apps.core.exception_handler import custom_exception_handler
 
         exc = Throttled(wait=None)

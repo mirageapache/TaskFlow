@@ -13,8 +13,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 # 必須在 django.setup() 之前（get_asgi_application 內部會呼叫）才 import routing
 django_asgi_app = get_asgi_application()
 
-from apps.notifications.middleware import JWTAuthMiddleware  # noqa: E402
 import apps.notifications.routing as notification_routing  # noqa: E402
+from apps.notifications.middleware import JWTAuthMiddleware  # noqa: E402
 
 application = ProtocolTypeRouter({
     'http': django_asgi_app,

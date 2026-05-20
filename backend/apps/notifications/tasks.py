@@ -26,6 +26,7 @@ def _push_notification_to_ws(notification):
     try:
         from asgiref.sync import async_to_sync
         from channels.layers import get_channel_layer
+
         from apps.notifications.consumers import _user_group_name
 
         channel_layer = get_channel_layer()

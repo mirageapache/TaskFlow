@@ -14,7 +14,6 @@ APIView.initial() patch、httpOnly cookie 串接全部正確。
 import pytest
 from django.conf import settings
 
-
 REGISTER_URL = '/api/v1/auth/register/'
 LOGIN_URL = '/api/v1/auth/login/'
 REFRESH_URL = '/api/v1/auth/refresh/'

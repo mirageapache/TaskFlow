@@ -8,14 +8,14 @@
 - 發送失敗時自動重試（不影響 in-app 通知）
 - 各通知 task 觸發 email 發送
 """
-from unittest.mock import patch, ANY
+from unittest.mock import ANY, patch
 
 import pytest
 from django.core import mail
 
 from apps.notifications.emails import send_notification_email
 from apps.notifications.models import Notification
-from tests.factories import UserFactory, TaskFactory, WorkspaceFactory
+from tests.factories import TaskFactory, UserFactory, WorkspaceFactory
 
 
 @pytest.mark.django_db

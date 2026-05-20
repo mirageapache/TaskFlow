@@ -21,7 +21,6 @@ from apps.users.serializers import (
     UserProfileSerializer,
 )
 
-
 REFRESH_COOKIE_KEY = settings.REFRESH_TOKEN_COOKIE['key']
 
 
@@ -101,8 +100,8 @@ class RefreshView(APIView):
             raise AuthenticationFailed(detail='缺少 refresh token。')
         try:
             refresh = RefreshToken(raw)
-        except (InvalidToken, TokenError):
-            raise AuthenticationFailed(detail='Refresh token 無效或已過期。')
+        except (InvalidToken, TokenError) as exc:
+            raise AuthenticationFailed(detail='Refresh token 無效或已過期。') from exc
 
         access = str(refresh.access_token)
         response_payload = {'access': access}

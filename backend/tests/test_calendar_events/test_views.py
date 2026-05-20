@@ -22,7 +22,6 @@ from tests.factories import (
     WorkspaceMemberFactory,
 )
 
-
 CALENDAR_URL = '/api/v1/calendar/'
 
 

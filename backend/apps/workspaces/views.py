@@ -119,9 +119,9 @@ class WorkspaceMemberListCreateView(generics.ListCreateAPIView):
                 user_id=user_id,
                 role=serializer.validated_data.get('role', WorkspaceMember.Role.MEMBER),
             )
-        except IntegrityError:
+        except IntegrityError as exc:
             # 命中 unique_workspace_member 約束 → 該 user 已加入
-            raise ValidationError({'user_id': '此使用者已是工作區成員。'})
+            raise ValidationError({'user_id': '此使用者已是工作區成員。'}) from exc
         out = self.get_serializer(member)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -192,8 +192,8 @@ class TagListCreateView(generics.ListCreateAPIView):
         ws = self.get_workspace()
         try:
             serializer.save(workspace=ws)
-        except IntegrityError:
-            raise ValidationError({'name': '此標籤名稱已存在。'})
+        except IntegrityError as exc:
+            raise ValidationError({'name': '此標籤名稱已存在。'}) from exc
 
 
 class TagDetailView(generics.RetrieveUpdateDestroyAPIView):

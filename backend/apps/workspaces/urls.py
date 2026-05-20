@@ -11,7 +11,6 @@ from apps.workspaces.views import (
     WorkspaceMemberListCreateView,
 )
 
-
 urlpatterns = [
     path('', WorkspaceListCreateView.as_view(), name='workspace-list'),
     path('<uuid:pk>/', WorkspaceDetailView.as_view(), name='workspace-detail'),

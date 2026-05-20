@@ -14,7 +14,6 @@ from apps.tasks.views import (
     TaskListCreateView,
 )
 
-
 urlpatterns = [
     # Task CRUD
     path('', TaskListCreateView.as_view(), name='task-list'),

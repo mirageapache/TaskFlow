@@ -8,7 +8,7 @@ from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
 
 from apps.notifications.consumers import NotificationConsumer
-from tests.factories import UserFactory, TaskFactory
+from tests.factories import TaskFactory, UserFactory
 
 
 def _make_communicator(user):

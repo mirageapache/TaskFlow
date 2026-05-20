@@ -16,10 +16,8 @@ from apps.tasks.models import (
     TaskAssignee,
     TaskAttachment,
     TaskComment,
-    Tag,
 )
 from apps.users.serializers import UserSerializer
-
 
 # 附件白名單與大小上限；新增類型時更新此處
 ALLOWED_MIME_TYPES = {

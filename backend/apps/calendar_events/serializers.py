@@ -13,7 +13,7 @@ def validate_rrule_string(value: str) -> str:
         # 用任意 dtstart 嘗試解析；若 syntax 錯誤會 raise
         rrule.rrulestr(f'RRULE:{value}', dtstart=__import__('datetime').datetime(2000, 1, 1))
     except (ValueError, TypeError) as exc:
-        raise serializers.ValidationError(f'recurrence_rule 格式錯誤：{exc}')
+        raise serializers.ValidationError(f'recurrence_rule 格式錯誤：{exc}') from exc
     return value
 
 

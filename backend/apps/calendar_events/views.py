@@ -8,9 +8,10 @@
 權限：必須為 event.workspace 的 owner 或 member（與 Workspace API 對齊）。
 """
 import datetime
-from typing import Iterable
+from collections.abc import Iterable
 
-from dateutil import parser as date_parser, rrule
+from dateutil import parser as date_parser
+from dateutil import rrule
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
@@ -40,8 +41,8 @@ def _accessible_workspace_ids(user) -> list:
 def _parse_iso_or_400(value: str, field: str) -> datetime.datetime:
     try:
         return date_parser.isoparse(value)
-    except (ValueError, TypeError):
-        raise ValidationError({field: '時間格式錯誤，需為 ISO 8601。'})
+    except (ValueError, TypeError) as exc:
+        raise ValidationError({field: '時間格式錯誤，需為 ISO 8601。'}) from exc
 
 
 def _expand_event(event: Event, range_start: datetime.datetime, range_end: datetime.datetime) -> Iterable[dict]:
