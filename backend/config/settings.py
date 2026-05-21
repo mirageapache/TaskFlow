@@ -228,6 +228,30 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='TaskFlow <noreply@tas
 # 是否啟用 Email 通知（可在 .env 中關閉）
 EMAIL_NOTIFICATIONS_ENABLED = config('EMAIL_NOTIFICATIONS_ENABLED', default=bool(EMAIL_HOST), cast=bool)
 
+# ─── Sentry 錯誤監控 ──────────────────────────────────────────────────────────
+# SENTRY_DSN 留空時自動停用（本地開發 / CI 不需發送錯誤到 Sentry）
+# 啟用時整合 Django + Celery，自動捕捉：
+#   - 未處理的 500 錯誤（含 stack trace、request payload、user context）
+#   - Celery 任務拋出的例外
+#   - 透過 logging 寫入 ERROR 級別的訊息
+SENTRY_DSN = config('SENTRY_DSN', default='')
+SENTRY_ENVIRONMENT = config('SENTRY_ENVIRONMENT', default='development')
+SENTRY_TRACES_SAMPLE_RATE = config('SENTRY_TRACES_SAMPLE_RATE', default=0.2, cast=float)
+
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+        send_default_pii=False,  # 避免把 request body / cookies 等個資送到 Sentry
+        attach_stacktrace=True,
+    )
+
 # ─── drf-spectacular（OpenAPI / Swagger 文件自動產生）─────────────────────────
 # /api/schema/            → OpenAPI 3.0 JSON/YAML
 # /api/schema/swagger-ui/ → 互動式 Swagger UI（可直接在瀏覽器試打 API）
