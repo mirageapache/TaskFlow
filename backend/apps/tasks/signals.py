@@ -25,7 +25,6 @@ from apps.tasks.models import (
 )
 from apps.users.middleware import get_current_user
 
-
 # Task 上會被追蹤 diff 的純量欄位（M2M / FK 用其他 signal 處理）
 # 用 *_id 而非物件本身，避免 access 觸發額外查詢
 TRACKED_FIELDS = [

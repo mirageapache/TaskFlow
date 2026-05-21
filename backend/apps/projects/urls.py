@@ -10,7 +10,6 @@ from apps.projects.views import (
     ProjectStatusListCreateView,
 )
 
-
 urlpatterns = [
     path('', ProjectListCreateView.as_view(), name='project-list'),
     path('<uuid:pk>/', ProjectDetailView.as_view(), name='project-detail'),

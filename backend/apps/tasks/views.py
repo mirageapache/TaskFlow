@@ -10,7 +10,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from apps.projects.models import Project, ProjectMember, ProjectStatus
+from apps.projects.models import ProjectMember, ProjectStatus
 from apps.tasks.models import (
     Tag,
     Task,
@@ -20,8 +20,8 @@ from apps.tasks.models import (
     TaskComment,
 )
 from apps.tasks.serializers import (
-    AttachmentRequestSerializer,
     MAX_FILE_SIZE,
+    AttachmentRequestSerializer,
     TaskActivityLogSerializer,
     TaskAssigneeSerializer,
     TaskAttachmentSerializer,
@@ -35,8 +35,6 @@ from apps.tasks.storage import (
     generate_upload_post,
 )
 from apps.users.models import User
-from apps.workspaces.models import WorkspaceMember
-
 
 # ────────────── 共用權限工具 ──────────────
 
@@ -262,8 +260,8 @@ class TaskAssigneeListCreateView(generics.ListCreateAPIView):
             raise ValidationError({'user_id': '使用者不存在。'})
         try:
             assignee = TaskAssignee.objects.create(task=task, user_id=user_id)
-        except IntegrityError:
-            raise ValidationError({'user_id': '此使用者已被指派。'})
+        except IntegrityError as exc:
+            raise ValidationError({'user_id': '此使用者已被指派。'}) from exc
         out = self.get_serializer(assignee)
         return Response(out.data, status=status.HTTP_201_CREATED)
 

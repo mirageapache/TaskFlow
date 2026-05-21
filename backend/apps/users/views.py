@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.core.throttling import LoginRateThrottle
 from apps.users.models import User, UserProfile
 from apps.users.serializers import (
     LoginSerializer,
@@ -19,7 +20,6 @@ from apps.users.serializers import (
     RegisterSerializer,
     UserProfileSerializer,
 )
-
 
 REFRESH_COOKIE_KEY = settings.REFRESH_TOKEN_COOKIE['key']
 
@@ -50,6 +50,7 @@ def _issue_tokens_for(user):
 class RegisterView(APIView):
     """POST /api/v1/auth/register/  — 註冊新帳號並回傳 access token。"""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -73,6 +74,7 @@ class RegisterView(APIView):
 class LoginView(APIView):
     """POST /api/v1/auth/login/  — 帳密登入，發 access token + 設 refresh cookie。"""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={'request': request})
@@ -98,8 +100,8 @@ class RefreshView(APIView):
             raise AuthenticationFailed(detail='缺少 refresh token。')
         try:
             refresh = RefreshToken(raw)
-        except (InvalidToken, TokenError):
-            raise AuthenticationFailed(detail='Refresh token 無效或已過期。')
+        except (InvalidToken, TokenError) as exc:
+            raise AuthenticationFailed(detail='Refresh token 無效或已過期。') from exc
 
         access = str(refresh.access_token)
         response_payload = {'access': access}

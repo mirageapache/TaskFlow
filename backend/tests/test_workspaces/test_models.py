@@ -16,6 +16,7 @@ class TestWorkspace:
 
     def test_uuid_primary_key(self, user):
         import uuid
+
         from apps.workspaces.models import Workspace
         workspace = Workspace.objects.create(name='Test', owner=user)
         assert isinstance(workspace.pk, uuid.UUID)

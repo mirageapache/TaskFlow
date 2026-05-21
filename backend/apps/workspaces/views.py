@@ -12,8 +12,13 @@ from rest_framework.response import Response
 
 from apps.tasks.models import Tag
 from apps.users.models import User
-from apps.workspaces.models import Workspace, WorkspaceMember
+from apps.workspaces.models import (
+    MembershipAuditLog,
+    Workspace,
+    WorkspaceMember,
+)
 from apps.workspaces.serializers import (
+    MembershipAuditLogSerializer,
     TagSerializer,
     WorkspaceMemberRoleUpdateSerializer,
     WorkspaceMemberSerializer,
@@ -114,9 +119,9 @@ class WorkspaceMemberListCreateView(generics.ListCreateAPIView):
                 user_id=user_id,
                 role=serializer.validated_data.get('role', WorkspaceMember.Role.MEMBER),
             )
-        except IntegrityError:
+        except IntegrityError as exc:
             # 命中 unique_workspace_member 約束 → 該 user 已加入
-            raise ValidationError({'user_id': '此使用者已是工作區成員。'})
+            raise ValidationError({'user_id': '此使用者已是工作區成員。'}) from exc
         out = self.get_serializer(member)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -141,11 +146,13 @@ class WorkspaceMemberDetailView(generics.GenericAPIView):
         )
 
     def patch(self, request, *args, **kwargs):
-        """變更成員角色，需 Admin/Owner 權限。"""
+        """變更成員角色，需 Admin/Owner 權限；但 workspace.owner 受保護不可被改。"""
         ws = self.get_workspace()
         if not _user_is_admin_or_owner(request.user, ws):
             raise PermissionDenied('需要 Admin 或 Owner 權限。')
         member = self.get_member()
+        if member.user_id == ws.owner_id:
+            raise PermissionDenied('Workspace Owner 的角色不可被修改，請先轉移擁有權。')
         serializer = self.get_serializer(member, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -153,11 +160,15 @@ class WorkspaceMemberDetailView(generics.GenericAPIView):
         return Response(out.data)
 
     def delete(self, request, *args, **kwargs):
-        """移除成員（軟刪除），需 Admin/Owner 權限。"""
+        """移除成員（軟刪除），需 Admin/Owner 權限；workspace.owner 與自己均受保護。"""
         ws = self.get_workspace()
         if not _user_is_admin_or_owner(request.user, ws):
             raise PermissionDenied('需要 Admin 或 Owner 權限。')
         member = self.get_member()
+        if member.user_id == ws.owner_id:
+            raise PermissionDenied('Workspace Owner 不可被移除，請先轉移擁有權。')
+        if member.user_id == request.user.id:
+            raise PermissionDenied('不可透過此端點移除自己，請使用「離開工作區」流程。')
         member.soft_delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -181,8 +192,8 @@ class TagListCreateView(generics.ListCreateAPIView):
         ws = self.get_workspace()
         try:
             serializer.save(workspace=ws)
-        except IntegrityError:
-            raise ValidationError({'name': '此標籤名稱已存在。'})
+        except IntegrityError as exc:
+            raise ValidationError({'name': '此標籤名稱已存在。'}) from exc
 
 
 class TagDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -202,3 +213,31 @@ class TagDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_destroy(self, instance):
         instance.soft_delete()
+
+
+class WorkspaceAuditLogListView(generics.ListAPIView):
+    """GET /api/v1/workspaces/{id}/audit-logs/  — 列出此工作區的成員資格變更紀錄。
+
+    存取限制：僅 Admin / Owner 可讀（一般 member 看不到敏感資訊）。
+    回傳資料依 changed_at 倒序（最新在前）。
+
+    範圍：本端點僅回傳 scope_type='workspace' 的紀錄。專案層級的紀錄由
+    `/api/v1/projects/{id}/audit-logs/` 提供（如需）。
+    """
+    serializer_class = MembershipAuditLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_workspace(self):
+        ws = get_object_or_404(Workspace, pk=self.kwargs['workspace_id'])
+        if not _user_in_workspace(self.request.user, ws):
+            raise PermissionDenied('您不是此工作區的成員。')
+        if not _user_is_admin_or_owner(self.request.user, ws):
+            raise PermissionDenied('需要 Admin 或 Owner 權限才能查看稽核紀錄。')
+        return ws
+
+    def get_queryset(self):
+        ws = self.get_workspace()
+        return MembershipAuditLog.objects.filter(
+            scope_type=MembershipAuditLog.ScopeType.WORKSPACE,
+            scope_id=ws.id,
+        ).order_by('-changed_at')

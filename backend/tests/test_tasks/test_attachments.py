@@ -15,7 +15,6 @@ import pytest
 from apps.tasks.serializers import AttachmentRequestSerializer
 from tests.factories import ProjectMemberFactory, UserFactory
 
-
 TASKS_URL = '/api/v1/tasks/'
 
 

@@ -1,4 +1,7 @@
+import datetime
+
 import factory
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 from faker import Faker
 
@@ -52,7 +55,7 @@ class WorkspaceMemberFactory(DjangoModelFactory):
     role = WorkspaceMember.Role.MEMBER
 
 
-from apps.projects.models import Project, ProjectStatus, ProjectMember
+from apps.projects.models import Project, ProjectMember, ProjectStatus
 
 
 class ProjectFactory(DjangoModelFactory):
@@ -103,3 +106,43 @@ class TaskFactory(DjangoModelFactory):
     status = factory.SubFactory(ProjectStatusFactory, project=factory.SelfAttribute('..project'))
     creator = factory.SubFactory(UserFactory)
     title = factory.Sequence(lambda n: f'Task {n}')
+
+
+# ────────────────  Calendar Events ────────────────
+
+
+from apps.calendar_events.models import Event
+
+
+class EventFactory(DjangoModelFactory):
+    class Meta:
+        model = Event
+
+    workspace = factory.SubFactory(WorkspaceFactory)
+    creator = factory.SubFactory(UserFactory)
+    title = factory.Sequence(lambda n: f'Event {n}')
+    description = ''
+    start_at = factory.LazyFunction(timezone.now)
+    end_at = factory.LazyAttribute(
+        lambda obj: obj.start_at + datetime.timedelta(hours=1),
+    )
+    is_all_day = False
+    recurrence_rule = ''
+
+
+# ────────────────  Notifications ────────────────
+
+
+from apps.notifications.models import Notification
+
+
+class NotificationFactory(DjangoModelFactory):
+    class Meta:
+        model = Notification
+
+    recipient = factory.SubFactory(UserFactory)
+    notif_type = Notification.NotifType.TASK_ASSIGNED
+    title = factory.Sequence(lambda n: f'Notif {n}')
+    body = ''
+    payload = {}
+    is_read = False

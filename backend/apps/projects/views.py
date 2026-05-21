@@ -183,8 +183,8 @@ class ProjectMemberListCreateView(generics.ListCreateAPIView):
                 user_id=user_id,
                 role=serializer.validated_data.get('role', ProjectMember.Role.MEMBER),
             )
-        except IntegrityError:
-            raise ValidationError({'user_id': '此使用者已是專案成員。'})
+        except IntegrityError as exc:
+            raise ValidationError({'user_id': '此使用者已是專案成員。'}) from exc
         out = self.get_serializer(member)
         return Response(out.data, status=status.HTTP_201_CREATED)
 

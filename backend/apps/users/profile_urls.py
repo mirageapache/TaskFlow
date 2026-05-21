@@ -3,7 +3,6 @@ from django.urls import path
 
 from apps.users.views import MeProfileView, MeView
 
-
 urlpatterns = [
     path('me/', MeView.as_view(), name='users-me'),
     path('me/profile/', MeProfileView.as_view(), name='users-me-profile'),

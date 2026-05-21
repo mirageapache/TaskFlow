@@ -3,10 +3,10 @@
 每個 Permission class 在 `has_object_permission()` 內判斷請求者是否擁有
 特定 Workspace / Project 角色。視圖透過 `permission_classes = [...]` 套用。
 """
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from apps.workspaces.models import WorkspaceMember
 from apps.projects.models import ProjectMember
+from apps.workspaces.models import WorkspaceMember
 
 
 class IsWorkspaceMember(BasePermission):
