@@ -22,10 +22,18 @@
 
       <div class="ml-auto flex items-center gap-1">
         <button
-          class="p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700"
+          data-test="notification-bell"
+          class="relative p-2 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700"
           aria-label="通知"
         >
           <i class="pi pi-bell"></i>
+          <span
+            v-if="unreadCount > 0"
+            data-test="notification-badge"
+            class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-orange-500 text-white text-[10px] font-semibold inline-flex items-center justify-center"
+          >
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+          </span>
         </button>
 
         <div ref="userMenuRef" class="relative">
@@ -190,13 +198,31 @@
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useToast } from 'primevue/usetoast'
 
+import { useWebSocket } from '@/composables/useWebSocket'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notification'
 import { useWorkspaceStore } from '@/stores/workspace'
+import type { Notification } from '@/types'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
+const notificationStore = useNotificationStore()
+const toast = useToast()
+const ws = useWebSocket()
+
+const unreadCount = computed(() => notificationStore.unreadCount)
+
+/** notif_type → Toast severity 對應；mention 醒目用 warn，其餘走 info。 */
+const NOTIF_SEVERITY: Record<string, 'info' | 'warn' | 'success'> = {
+  task_assigned: 'info',
+  task_comment: 'info',
+  task_status_changed: 'success',
+  mention: 'warn',
+  workspace_invite: 'info',
+}
 
 const sidebarCollapsed = ref(false)
 const mobileNavOpen = ref(false)
@@ -241,6 +267,25 @@ onMounted(() => {
   document.addEventListener('click', handleDocClick)
   // 確保 sidebar 上的工作區名稱可顯示；錯誤交給 store.error，不阻塞 UI
   workspaceStore.fetchAll().catch(() => {})
+
+  // 即時通知：WS 推送 → Pinia Store 更新 + Toast 顯示
+  ws.on('notification', (msg) => {
+    const notif = (msg as unknown as { data: Notification }).data
+    notificationStore.pushNotification(notif)
+    toast.add({
+      severity: NOTIF_SEVERITY[notif.notif_type] ?? 'info',
+      summary: notif.title,
+      detail: notif.body,
+      life: 4000,
+    })
+  })
+  ws.on('unread_count', (msg) => {
+    notificationStore.setUnreadCount((msg as unknown as { count: number }).count)
+  })
+  ws.connect()
 })
-onUnmounted(() => document.removeEventListener('click', handleDocClick))
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocClick)
+  ws.disconnect()
+})
 </script>

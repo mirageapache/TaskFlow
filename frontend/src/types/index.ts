@@ -85,3 +85,23 @@ export interface Tag {
   created_at: string
   updated_at: string
 }
+
+export type NotificationType =
+  | 'task_assigned'
+  | 'task_comment'
+  | 'task_status_changed'
+  | 'mention'
+  | 'workspace_invite'
+
+export interface Notification {
+  id: string
+  /** recipient UUID（= 自己） */
+  recipient: string
+  notif_type: NotificationType
+  title: string
+  body: string
+  payload: Record<string, unknown>
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}

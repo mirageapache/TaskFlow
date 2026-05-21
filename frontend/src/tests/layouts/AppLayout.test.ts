@@ -1,6 +1,6 @@
 /**
  * AppLayout 測試
- * 規格：.doc/taskflow_layout_design.md §5.3
+ * 規格：.doc/taskflow_layout_design.md §5.3 / .doc/taskflow-frontend.md §4.7
  *
  * 驗證：
  * - 渲染 slot 內容
@@ -8,6 +8,7 @@
  * - Sidebar 包含主要導航項目（儀表板 / AI 助理 / 設定）
  * - 已登入：使用者選單顯示首字 / 名稱 / Email
  * - 點登出：呼叫 authStore.logout 後導 /login
+ * - 即時通知：WS 推送 → Pinia store 更新 + Toast 顯示 + 未讀徽章
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -16,6 +17,7 @@ import type { Router } from 'vue-router'
 
 import client from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notification'
 import AppLayout from '@/layouts/AppLayout.vue'
 
 vi.mock('@/api/client', () => ({
@@ -24,6 +26,30 @@ vi.mock('@/api/client', () => ({
     get: vi.fn(),
   },
 }))
+
+const toastAdd = vi.fn()
+vi.mock('primevue/usetoast', () => ({
+  useToast: () => ({ add: toastAdd }),
+}))
+
+// useWebSocket：以 stub 暴露 connect / disconnect / on，並提供 emit 觸發 handler
+const wsHandlers: Record<string, ((msg: unknown) => void) | undefined> = {}
+const wsConnect = vi.fn()
+const wsDisconnect = vi.fn()
+vi.mock('@/composables/useWebSocket', () => ({
+  useWebSocket: () => ({
+    isConnected: { value: false },
+    connect: wsConnect,
+    disconnect: wsDisconnect,
+    on: (type: string, handler: (msg: unknown) => void) => {
+      wsHandlers[type] = handler
+    },
+  }),
+}))
+
+function emitWs(type: string, msg: unknown) {
+  wsHandlers[type]?.(msg)
+}
 
 function buildRouter(): Router {
   return createRouter({
@@ -51,6 +77,10 @@ describe('AppLayout', () => {
   beforeEach(() => {
     vi.mocked(client.post).mockReset()
     vi.mocked(client.get).mockReset()
+    toastAdd.mockReset()
+    wsConnect.mockReset()
+    wsDisconnect.mockReset()
+    for (const k of Object.keys(wsHandlers)) delete wsHandlers[k]
   })
 
   it('渲染 slot 內容', async () => {
@@ -177,6 +207,90 @@ describe('AppLayout', () => {
     // 收合狀態下按鈕仍存在（位置可能不同），再點展開
     await wrapper.find('[data-test="sidebar-toggle"]').trigger('click')
     expect(sidebar.classes()).toContain('w-60')
+  })
+
+  describe('即時通知（WebSocket + Toast + 未讀徽章）', () => {
+    it('掛載時呼叫 ws.connect 並註冊 notification / unread_count handler', async () => {
+      await mountLayout(buildRouter())
+      await flushPromises()
+
+      expect(wsConnect).toHaveBeenCalledTimes(1)
+      expect(typeof wsHandlers.notification).toBe('function')
+      expect(typeof wsHandlers.unread_count).toBe('function')
+    })
+
+    it('收到 type=notification → store.pushNotification + toast.add', async () => {
+      await mountLayout(buildRouter())
+      await flushPromises()
+
+      const notifStore = useNotificationStore()
+      expect(notifStore.unreadCount).toBe(0)
+
+      emitWs('notification', {
+        type: 'notification',
+        data: {
+          id: 'n1',
+          recipient: 'u1',
+          notif_type: 'task_assigned',
+          title: '你被指派了一個任務',
+          body: '請開始處理「設計資料庫」',
+          payload: {},
+          is_read: false,
+          read_at: null,
+          created_at: '2026-05-21T08:00:00Z',
+        },
+      })
+
+      expect(notifStore.list).toHaveLength(1)
+      expect(notifStore.list[0].id).toBe('n1')
+      expect(notifStore.unreadCount).toBe(1)
+      expect(toastAdd).toHaveBeenCalledTimes(1)
+      expect(toastAdd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          severity: 'info',
+          summary: '你被指派了一個任務',
+          detail: '請開始處理「設計資料庫」',
+        }),
+      )
+    })
+
+    it('收到 type=unread_count → store.setUnreadCount', async () => {
+      const wrapper = await mountLayout(buildRouter())
+      await flushPromises()
+
+      emitWs('unread_count', { type: 'unread_count', count: 7 })
+      await flushPromises()
+
+      const notifStore = useNotificationStore()
+      expect(notifStore.unreadCount).toBe(7)
+
+      // Badge 顯示在通知鈴鐺上
+      const badge = wrapper.find('[data-test="notification-badge"]')
+      expect(badge.exists()).toBe(true)
+      expect(badge.text()).toBe('7')
+    })
+
+    it('未讀為 0：不顯示徽章', async () => {
+      const wrapper = await mountLayout(buildRouter())
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="notification-badge"]').exists()).toBe(false)
+    })
+
+    it('未讀超過 99：徽章顯示 99+', async () => {
+      const wrapper = await mountLayout(buildRouter())
+      await flushPromises()
+      emitWs('unread_count', { type: 'unread_count', count: 150 })
+      await flushPromises()
+      expect(wrapper.find('[data-test="notification-badge"]').text()).toBe('99+')
+    })
+
+    it('卸載時呼叫 ws.disconnect', async () => {
+      const wrapper = await mountLayout(buildRouter())
+      await flushPromises()
+      wrapper.unmount()
+      expect(wsDisconnect).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('登出 API 失敗仍清除前端 session 並導 /login', async () => {
