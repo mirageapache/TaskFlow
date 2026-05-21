@@ -86,6 +86,24 @@ export interface Tag {
   updated_at: string
 }
 
+export interface CalendarEvent {
+  id: string
+  /** workspace FK（UUID） */
+  workspace: string
+  /** creator UUID；後端帳號刪除走 SET_NULL，可能為 null */
+  creator: string | null
+  title: string
+  description: string
+  /** ISO 8601 datetime */
+  start_at: string
+  end_at: string
+  is_all_day: boolean
+  /** iCal RRULE 字串；空字串代表單次活動 */
+  recurrence_rule: string
+  created_at: string
+  updated_at: string
+}
+
 export type NotificationType =
   | 'task_assigned'
   | 'task_comment'

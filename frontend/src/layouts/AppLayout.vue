@@ -241,6 +241,7 @@ const currentWorkspaceName = computed(() => workspaceStore.list[0]?.name ?? '個
 const navItems = [
   { to: '/dashboard', label: '儀表板', icon: 'pi-home' },
   { to: '/workspaces', label: '工作區', icon: 'pi-th-large' },
+  { to: '/calendar', label: '行事曆', icon: 'pi-calendar' },
   { to: '/ai', label: 'AI 助理', icon: 'pi-sparkles' },
   { to: '/settings', label: '設定', icon: 'pi-cog' },
 ]

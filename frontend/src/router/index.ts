@@ -64,6 +64,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, layout: 'app' },
   },
   {
+    path: '/calendar',
+    name: 'calendar',
+    component: () => import('@/views/CalendarView.vue'),
+    meta: { requiresAuth: true, layout: 'app' },
+  },
+  {
     path: '/ai',
     name: 'ai',
     component: () => import('@/views/AiCenterView.vue'),
