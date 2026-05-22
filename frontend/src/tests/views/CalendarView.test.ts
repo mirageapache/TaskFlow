@@ -39,6 +39,12 @@ vi.mock('@fullcalendar/vue3', () => ({
 }))
 vi.mock('@fullcalendar/daygrid', () => ({ default: { name: 'dayGridPlugin' } }))
 vi.mock('@fullcalendar/timegrid', () => ({ default: { name: 'timeGridPlugin' } }))
+vi.mock('@fullcalendar/interaction', () => ({ default: { name: 'interactionPlugin' } }))
+
+const toastAdd = vi.fn()
+vi.mock('primevue/usetoast', () => ({
+  useToast: () => ({ add: toastAdd }),
+}))
 
 import CalendarView from '@/views/CalendarView.vue'
 
@@ -126,6 +132,8 @@ function setupClientGetByUrl() {
 describe('CalendarView', () => {
   beforeEach(() => {
     vi.mocked(client.get).mockReset()
+    vi.mocked(client.patch).mockReset()
+    toastAdd.mockReset()
   })
 
   it('掛載時抓 workspace 並自動選第一個', async () => {
@@ -247,6 +255,211 @@ describe('CalendarView', () => {
     expect(calendarCalls.length).toBeGreaterThanOrEqual(1)
     expect(calendarCalls[calendarCalls.length - 1][1]).toMatchObject({
       params: expect.objectContaining({ workspace: 'w2', expand: 'true' }),
+    })
+  })
+
+  describe('拖曳調整事件時間（@fullcalendar/interaction）', () => {
+    it('CalendarOptions：啟用 editable / eventStartEditable / eventDurationEditable', async () => {
+      setupClientGetByUrl()
+      const wrapper = await mountView(buildRouter())
+      await flushPromises()
+
+      const fcComp = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcComp.props('options') as Record<string, unknown>
+
+      expect(options.editable).toBe(true)
+      expect(options.eventStartEditable).toBe(true)
+      expect(options.eventDurationEditable).toBe(true)
+      expect(typeof options.eventDrop).toBe('function')
+      expect(typeof options.eventResize).toBe('function')
+    })
+
+    it('eventDrop：PATCH /calendar/{id}/ 帶新的 start_at / end_at', async () => {
+      setupClientGetByUrl()
+      const wrapper = await mountView(buildRouter())
+      await flushPromises()
+
+      const fcComp = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcComp.props('options') as {
+        datesSet?: (a: unknown) => Promise<void>
+        eventDrop?: (a: unknown) => Promise<void>
+      }
+
+      await options.datesSet?.({
+        start: new Date('2026-05-01T00:00:00Z'),
+        end: new Date('2026-05-31T23:59:59Z'),
+      })
+      await flushPromises()
+
+      vi.mocked(client.patch).mockResolvedValueOnce({
+        data: {
+          ...sampleEvents[0],
+          start_at: '2026-05-22T09:00:00.000Z',
+          end_at: '2026-05-22T10:00:00.000Z',
+        },
+      })
+
+      const revert = vi.fn()
+      await options.eventDrop?.({
+        event: {
+          id: 'e1',
+          start: new Date('2026-05-22T09:00:00Z'),
+          end: new Date('2026-05-22T10:00:00Z'),
+          allDay: false,
+        },
+        revert,
+      })
+      await flushPromises()
+
+      expect(client.patch).toHaveBeenCalledWith('/calendar/e1/', {
+        start_at: '2026-05-22T09:00:00.000Z',
+        end_at: '2026-05-22T10:00:00.000Z',
+      })
+      expect(revert).not.toHaveBeenCalled()
+      expect(toastAdd).not.toHaveBeenCalled()
+    })
+
+    it('eventDrop：event.end 為 null（FullCalendar 對單點事件可能不給 end）→ 由前一個 end 推導 duration', async () => {
+      setupClientGetByUrl()
+      const wrapper = await mountView(buildRouter())
+      await flushPromises()
+
+      const fcComp = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcComp.props('options') as {
+        datesSet?: (a: unknown) => Promise<void>
+        eventDrop?: (a: unknown) => Promise<void>
+      }
+      await options.datesSet?.({
+        start: new Date('2026-05-01T00:00:00Z'),
+        end: new Date('2026-05-31T23:59:59Z'),
+      })
+      await flushPromises()
+
+      vi.mocked(client.patch).mockResolvedValueOnce({ data: sampleEvents[0] })
+
+      await options.eventDrop?.({
+        event: {
+          id: 'e1',
+          start: new Date('2026-05-22T09:00:00Z'),
+          end: null,
+          allDay: false,
+        },
+        revert: vi.fn(),
+      })
+      await flushPromises()
+
+      // sampleEvents[0] 原本 duration 為 1 小時 → 新 end_at = start + 1h
+      expect(client.patch).toHaveBeenCalledWith('/calendar/e1/', {
+        start_at: '2026-05-22T09:00:00.000Z',
+        end_at: '2026-05-22T10:00:00.000Z',
+      })
+    })
+
+    it('eventDrop 失敗：呼叫 revert()，顯示 Toast 錯誤', async () => {
+      setupClientGetByUrl()
+      const wrapper = await mountView(buildRouter())
+      await flushPromises()
+
+      const fcComp = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcComp.props('options') as {
+        datesSet?: (a: unknown) => Promise<void>
+        eventDrop?: (a: unknown) => Promise<void>
+      }
+      await options.datesSet?.({
+        start: new Date('2026-05-01T00:00:00Z'),
+        end: new Date('2026-05-31T23:59:59Z'),
+      })
+      await flushPromises()
+
+      vi.mocked(client.patch).mockRejectedValueOnce(new Error('500'))
+
+      const revert = vi.fn()
+      await options.eventDrop?.({
+        event: {
+          id: 'e1',
+          start: new Date('2026-05-22T09:00:00Z'),
+          end: new Date('2026-05-22T10:00:00Z'),
+          allDay: false,
+        },
+        revert,
+      })
+      await flushPromises()
+
+      expect(revert).toHaveBeenCalledTimes(1)
+      expect(toastAdd).toHaveBeenCalledWith(
+        expect.objectContaining({ severity: 'error' }),
+      )
+    })
+
+    it('eventResize：PATCH 帶新的 end_at（start_at 不變）', async () => {
+      setupClientGetByUrl()
+      const wrapper = await mountView(buildRouter())
+      await flushPromises()
+
+      const fcComp = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcComp.props('options') as {
+        datesSet?: (a: unknown) => Promise<void>
+        eventResize?: (a: unknown) => Promise<void>
+      }
+      await options.datesSet?.({
+        start: new Date('2026-05-01T00:00:00Z'),
+        end: new Date('2026-05-31T23:59:59Z'),
+      })
+      await flushPromises()
+
+      vi.mocked(client.patch).mockResolvedValueOnce({ data: sampleEvents[0] })
+
+      await options.eventResize?.({
+        event: {
+          id: 'e1',
+          start: new Date('2026-05-21T09:00:00Z'),
+          end: new Date('2026-05-21T11:30:00Z'),
+          allDay: false,
+        },
+        revert: vi.fn(),
+      })
+      await flushPromises()
+
+      expect(client.patch).toHaveBeenCalledWith('/calendar/e1/', {
+        start_at: '2026-05-21T09:00:00.000Z',
+        end_at: '2026-05-21T11:30:00.000Z',
+      })
+    })
+
+    it('eventResize 失敗：revert + toast error', async () => {
+      setupClientGetByUrl()
+      const wrapper = await mountView(buildRouter())
+      await flushPromises()
+
+      const fcComp = wrapper.findComponent({ name: 'FullCalendar' })
+      const options = fcComp.props('options') as {
+        datesSet?: (a: unknown) => Promise<void>
+        eventResize?: (a: unknown) => Promise<void>
+      }
+      await options.datesSet?.({
+        start: new Date('2026-05-01T00:00:00Z'),
+        end: new Date('2026-05-31T23:59:59Z'),
+      })
+      await flushPromises()
+
+      vi.mocked(client.patch).mockRejectedValueOnce(new Error('network'))
+
+      const revert = vi.fn()
+      await options.eventResize?.({
+        event: {
+          id: 'e1',
+          start: new Date('2026-05-21T09:00:00Z'),
+          end: new Date('2026-05-21T12:00:00Z'),
+          allDay: false,
+        },
+        revert,
+      })
+      await flushPromises()
+
+      expect(revert).toHaveBeenCalledTimes(1)
+      expect(toastAdd).toHaveBeenCalledWith(
+        expect.objectContaining({ severity: 'error' }),
+      )
     })
   })
 

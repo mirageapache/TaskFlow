@@ -50,13 +50,16 @@ import { computed, onMounted, ref, watch } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
 import type { CalendarOptions, DatesSetArg, EventInput } from '@fullcalendar/core'
+import { useToast } from 'primevue/usetoast'
 
 import { useCalendarStore } from '@/stores/calendar'
 import { useWorkspaceStore } from '@/stores/workspace'
 
 const workspaceStore = useWorkspaceStore()
 const calendarStore = useCalendarStore()
+const toast = useToast()
 
 const workspaceList = computed(() => workspaceStore.list)
 const selectedWorkspaceId = ref<string>('')
@@ -73,6 +76,52 @@ const fcEvents = computed<EventInput[]>(() =>
     allDay: e.is_all_day,
   })),
 )
+
+/**
+ * 拖曳 / 縮放共用：把 FullCalendar 給的新時間 PATCH 回後端。
+ *
+ * - 樂觀 UI：FullCalendar 在 callback 觸發前已把事件畫到新位置，store 也會在 update() 成功時更新；
+ *   PATCH 失敗則呼叫 `info.revert()` 把 UI 回到原位，並用 Toast 告知使用者。
+ * - eventDrop 可能不帶 `end`（單點 / allDay 事件）：用原事件 duration 推導新的 end。
+ */
+async function applyTimeChange(
+  info: { event: { id: string; start: Date | null; end: Date | null }; revert: () => void },
+) {
+  const id = info.event.id
+  const newStart = info.event.start
+  if (!newStart) {
+    info.revert()
+    return
+  }
+
+  let newEnd = info.event.end
+  if (!newEnd) {
+    // 用原事件 duration 推導；找不到原事件就用 +1h 兜底
+    const original = calendarStore.events.find((e) => e.id === id)
+    if (original) {
+      const duration =
+        new Date(original.end_at).getTime() - new Date(original.start_at).getTime()
+      newEnd = new Date(newStart.getTime() + duration)
+    } else {
+      newEnd = new Date(newStart.getTime() + 60 * 60 * 1000)
+    }
+  }
+
+  try {
+    await calendarStore.update(id, {
+      start_at: newStart.toISOString(),
+      end_at: newEnd.toISOString(),
+    })
+  } catch {
+    info.revert()
+    toast.add({
+      severity: 'error',
+      summary: '更新失敗',
+      detail: '事件時間更新失敗，已復原',
+      life: 3000,
+    })
+  }
+}
 
 async function handleDatesSet(arg: DatesSetArg) {
   currentRange.value = {
@@ -92,7 +141,7 @@ async function handleDatesSet(arg: DatesSetArg) {
 }
 
 const calendarOptions = computed<CalendarOptions>(() => ({
-  plugins: [dayGridPlugin, timeGridPlugin],
+  plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
   initialView: 'dayGridMonth',
   headerToolbar: {
     left: 'prev,next today',
@@ -105,6 +154,12 @@ const calendarOptions = computed<CalendarOptions>(() => ({
   height: 'auto',
   events: fcEvents.value,
   datesSet: handleDatesSet,
+  // 拖曳 / 縮放需 interactionPlugin
+  editable: true,
+  eventStartEditable: true,
+  eventDurationEditable: true,
+  eventDrop: applyTimeChange,
+  eventResize: applyTimeChange,
 }))
 
 onMounted(async () => {
