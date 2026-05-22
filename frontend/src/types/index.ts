@@ -123,3 +123,34 @@ export interface Notification {
   read_at: string | null
   created_at: string
 }
+
+/**
+ * 任務附件 metadata（對應後端 `TaskAttachmentSerializer`）。
+ *
+ * 上傳流程使用 Presigned URL 六步流程；`is_confirmed=false` 代表還未呼叫 confirm，
+ * UI 應隱藏或顯示為「上傳中」。下載 URL 不在此處，必須另呼叫 download 端點取得 15 分鐘短期連結。
+ */
+export interface Attachment {
+  id: string
+  uploader: User | null
+  file_name: string
+  file_key: string
+  file_size: number
+  mime_type: string
+  is_confirmed: boolean
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * `POST /tasks/{id}/attachments/request-upload/` 回應。
+ *
+ * `upload_url` + `fields` 是 boto3 `generate_presigned_post()` 產生的 S3 直傳組合；
+ * 前端必須以 multipart/form-data POST 到 `upload_url`，欄位先放 `fields`，最後一欄放 `file`。
+ * 此步驟不可帶 Authorization header（會被 S3 拒收），需用原生 fetch 而非帶 JWT 的 axios client。
+ */
+export interface RequestUploadResponse {
+  attachment_id: string
+  upload_url: string
+  fields: Record<string, string>
+}

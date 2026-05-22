@@ -137,6 +137,7 @@
 
         <!-- 附件 -->
         <div v-else-if="activeTab === 'attachments'" data-test="tab-attachments">
+          <AttachmentUploader :task-id="task.id" class="mb-3" @uploaded="onAttachmentUploaded" />
           <ul v-if="attachments.length > 0" class="space-y-2">
             <li
               v-for="a in attachments"
@@ -232,7 +233,8 @@ import dayjs from 'dayjs'
 
 import client from '@/api/client'
 import { useTaskStore } from '@/stores/task'
-import type { Task, TaskPriority, User } from '@/types'
+import type { Attachment as AttachmentDTO, Task, TaskPriority, User } from '@/types'
+import AttachmentUploader from '@/components/task/AttachmentUploader.vue'
 
 const props = defineProps<{ task: Task }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'deleted'): void }>()
@@ -333,6 +335,21 @@ async function loadAttachments() {
   } finally {
     loadingAttachments.value = false
   }
+}
+
+function onAttachmentUploaded(a: AttachmentDTO) {
+  // 後端 TaskAttachmentSerializer 用 `uploader`；本地列表型別歷史上叫 `uploaded_by`，做一次對齊
+  attachments.value = [
+    ...attachments.value,
+    {
+      id: a.id,
+      file_name: a.file_name,
+      file_size: a.file_size,
+      mime_type: a.mime_type,
+      uploaded_by: a.uploader,
+      created_at: a.created_at,
+    },
+  ]
 }
 
 async function onSave() {
