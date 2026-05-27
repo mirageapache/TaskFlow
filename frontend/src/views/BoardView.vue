@@ -39,6 +39,7 @@
     <!-- Empty status -->
     <div
       v-else-if="statuses.length === 0"
+      data-test="empty-statuses"
       class="mt-12 py-16 text-center"
     >
       <i class="pi pi-th-large text-6xl text-stone-300 dark:text-stone-600"></i>
@@ -46,7 +47,23 @@
         還沒有看板欄位
       </h2>
       <p class="mt-2 text-sm text-stone-500 dark:text-stone-400">
-        請至專案設定建立看板欄位（待辦／進行中／完成）→
+        一鍵建立預設欄位（待辦／進行中／完成）即可開始追蹤任務。
+      </p>
+      <button
+        data-test="bootstrap-defaults"
+        :disabled="bootstrapping"
+        class="mt-6 h-10 px-5 rounded-lg bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-150 inline-flex items-center gap-2"
+        @click="bootstrapDefaults"
+      >
+        <i :class="['pi', bootstrapping ? 'pi-spinner pi-spin' : 'pi-plus']"></i>
+        <span>{{ bootstrapping ? '建立中…' : '建立預設欄位' }}</span>
+      </button>
+      <p
+        v-if="bootstrapError"
+        class="mt-4 text-sm text-red-600 dark:text-red-400"
+        role="alert"
+      >
+        {{ bootstrapError }}
       </p>
     </div>
 
@@ -176,6 +193,7 @@ import { useDragAndDrop } from '@/composables/useDragAndDrop'
 import { useProjectStore } from '@/stores/project'
 import { useTaskStore } from '@/stores/task'
 import type { ProjectStatus, Task } from '@/types'
+import { parseApiError } from '@/utils/api-errors'
 
 interface DragChange {
   added?: { element: Task; newIndex: number }
@@ -265,6 +283,23 @@ async function submitCreate(statusId: string) {
     cancelCreate()
   } finally {
     creating.value = false
+  }
+}
+
+const bootstrapping = ref(false)
+const bootstrapError = ref<string | null>(null)
+
+/** 為舊專案一鍵補上預設看板欄位。成功後 store 會 emit、watch 自動重組 columns。 */
+async function bootstrapDefaults() {
+  bootstrapping.value = true
+  bootstrapError.value = null
+  try {
+    await projectStore.bootstrapDefaultStatuses(projectId.value)
+  } catch (err) {
+    const { banner } = parseApiError(err)
+    bootstrapError.value = banner ?? '建立預設欄位失敗，請稍後再試。'
+  } finally {
+    bootstrapping.value = false
   }
 }
 </script>

@@ -76,6 +76,22 @@ export const useProjectStore = defineStore('project', () => {
     return data
   }
 
+  /**
+   * 為「沒有任何看板欄位」的舊專案一鍵補上預設三欄（待辦／進行中／完成）。
+   * 成功時把 server 回傳結果直接寫進 statusesByProject 快取，呼叫端不必再 fetch。
+   *
+   * 後端對應：POST /projects/{id}/statuses/bootstrap-defaults/
+   * - 409：專案已有欄位（呼叫端可改走 fetchStatuses force=true 同步狀態）
+   */
+  async function bootstrapDefaultStatuses(projectId: string): Promise<ProjectStatus[]> {
+    const { data } = await client.post<ProjectStatus[]>(
+      `/projects/${projectId}/statuses/bootstrap-defaults/`,
+    )
+    statusesByProject.value[projectId] = data.sort((a, b) => a.order - b.order)
+    loadedStatuses.value.add(projectId)
+    return data
+  }
+
   function getByWorkspace(workspaceId: string): Project[] {
     return byWorkspace.value[workspaceId] ?? []
   }
@@ -115,6 +131,7 @@ export const useProjectStore = defineStore('project', () => {
     fetchById,
     fetchStatuses,
     create,
+    bootstrapDefaultStatuses,
     getByWorkspace,
     getById,
     getStatuses,

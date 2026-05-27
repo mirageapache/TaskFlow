@@ -2,7 +2,7 @@
 
 涵蓋：專案 CRUD、看板狀態欄管理、專案成員管理。
 """
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
@@ -18,6 +18,22 @@ from apps.projects.serializers import (
 )
 from apps.users.models import User
 from apps.workspaces.models import Workspace, WorkspaceMember
+
+# 新專案建立時自動帶入的預設看板欄位。
+# 顏色取自 Tailwind 色票：slate-400 / blue-500 / emerald-500。
+# 最後一欄 is_completed=True 用於 Dashboard 計算「完成率」等統計。
+DEFAULT_PROJECT_STATUSES = (
+    {'name': '待辦', 'color': '#94a3b8', 'order': 0, 'is_completed': False},
+    {'name': '進行中', 'color': '#3b82f6', 'order': 1, 'is_completed': False},
+    {'name': '完成', 'color': '#10b981', 'order': 2, 'is_completed': True},
+)
+
+
+def _create_default_statuses(project):
+    """為新建專案 bulk_create 三個預設看板欄位。"""
+    ProjectStatus.objects.bulk_create([
+        ProjectStatus(project=project, **fields) for fields in DEFAULT_PROJECT_STATUSES
+    ])
 
 
 def _user_in_workspace(user, workspace):
@@ -57,7 +73,12 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         ).distinct().order_by('-created_at')
 
     def create(self, request, *args, **kwargs):
-        """建立專案：透過 `workspace_id` 指定所屬工作區，需為該工作區成員。"""
+        """建立專案：透過 `workspace_id` 指定所屬工作區，需為該工作區成員。
+
+        建立同時自動帶入三個預設看板欄位（待辦／進行中／完成），整個流程包在
+        transaction.atomic 內 — 若預設欄位寫入失敗會一併回滾，避免出現
+        「專案存在但沒有任何欄位」的破口（這正是先前 BoardView 看到空白的根因）。
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         workspace_id = serializer.validated_data.get('workspace_id')
@@ -66,12 +87,14 @@ class ProjectListCreateView(generics.ListCreateAPIView):
         workspace = get_object_or_404(Workspace, pk=workspace_id)
         if not _user_in_workspace(request.user, workspace):
             raise PermissionDenied('您不是此工作區的成員。')
-        project = Project.objects.create(
-            workspace=workspace,
-            name=serializer.validated_data['name'],
-            description=serializer.validated_data.get('description', ''),
-            color=serializer.validated_data.get('color', '#6366f1'),
-        )
+        with transaction.atomic():
+            project = Project.objects.create(
+                workspace=workspace,
+                name=serializer.validated_data['name'],
+                description=serializer.validated_data.get('description', ''),
+                color=serializer.validated_data.get('color', '#6366f1'),
+            )
+            _create_default_statuses(project)
         out = self.get_serializer(project)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -123,6 +146,33 @@ class ProjectStatusListCreateView(generics.ListCreateAPIView):
         if not _user_is_project_manager(self.request.user, project):
             raise PermissionDenied('需要 Project Manager 權限。')
         serializer.save(project=project)
+
+
+class ProjectStatusBootstrapDefaultsView(generics.GenericAPIView):
+    """POST /api/v1/projects/{id}/statuses/bootstrap-defaults/
+
+    為「沒有任何看板欄位」的舊專案一鍵補上預設三欄（待辦／進行中／完成）。
+    需 Manager 權限；若專案已有欄位則回 409 避免覆蓋既有設定。
+    """
+    serializer_class = ProjectStatusSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        project = get_object_or_404(Project, pk=self.kwargs['project_id'])
+        if not _user_in_project(request.user, project):
+            raise PermissionDenied('您不是此專案的成員。')
+        if not _user_is_project_manager(request.user, project):
+            raise PermissionDenied('需要 Project Manager 權限。')
+        if ProjectStatus.objects.filter(project=project).exists():
+            return Response(
+                {'detail': '此專案已有看板欄位，無法重複建立預設值。'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        with transaction.atomic():
+            _create_default_statuses(project)
+        statuses = ProjectStatus.objects.filter(project=project).order_by('order')
+        out = ProjectStatusSerializer(statuses, many=True)
+        return Response(out.data, status=status.HTTP_201_CREATED)
 
 
 class ProjectStatusDetailView(generics.RetrieveUpdateDestroyAPIView):

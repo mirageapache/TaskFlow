@@ -7,7 +7,11 @@ import ToastService from 'primevue/toastservice'
 import App from './App.vue'
 import { initSentry } from './lib/sentry'
 import router from './router'
+import { initThemeFromStorage } from './utils/theme'
 import './assets/main.css'
+
+// 在 mount 前套用主題，避免從 localStorage 讀取 dark 設定時的閃白屏
+initThemeFromStorage()
 
 const app = createApp(App)
 initSentry({ app, router })

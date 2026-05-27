@@ -60,6 +60,23 @@ class TestProjectList:
         assert response.status_code == 201
         assert response.data['name'] == '新專案'
 
+    def test_create_project_auto_creates_default_statuses(self, auth_client, workspace):
+        """新建專案應同步建立三個預設看板欄位（待辦／進行中／完成）。"""
+        response = auth_client.post(PROJECTS_URL, {
+            'name': '預設欄位專案',
+            'workspace_id': str(workspace.id),
+        })
+        assert response.status_code == 201
+        statuses_resp = auth_client.get(
+            f"{PROJECTS_URL}{response.data['id']}/statuses/",
+        )
+        assert statuses_resp.status_code == 200
+        results = statuses_resp.data['results']
+        assert [s['name'] for s in results] == ['待辦', '進行中', '完成']
+        assert [s['order'] for s in results] == [0, 1, 2]
+        # 只有「完成」欄位應標記為 is_completed
+        assert [s['is_completed'] for s in results] == [False, False, True]
+
     def test_create_project_requires_workspace_id(self, auth_client):
         response = auth_client.post(PROJECTS_URL, {'name': 'X'})
         assert response.status_code == 400
@@ -154,6 +171,39 @@ class TestProjectStatuses:
             f'{PROJECTS_URL}{project.id}/statuses/{s.id}/',
         )
         assert response.status_code == 204
+
+
+@pytest.mark.django_db
+class TestBootstrapDefaultStatuses:
+    """POST /projects/{id}/statuses/bootstrap-defaults/ — 為舊專案補預設欄位。"""
+
+    BOOTSTRAP_URL = '{}{}/statuses/bootstrap-defaults/'
+
+    def test_owner_can_bootstrap_when_empty(self, auth_client, project):
+        url = self.BOOTSTRAP_URL.format(PROJECTS_URL, project.id)
+        response = auth_client.post(url)
+        assert response.status_code == 201
+        assert [s['name'] for s in response.data] == ['待辦', '進行中', '完成']
+        assert response.data[-1]['is_completed'] is True
+
+    def test_bootstrap_conflicts_when_statuses_exist(self, auth_client, project):
+        ProjectStatusFactory(project=project, name='Existing', order=0)
+        url = self.BOOTSTRAP_URL.format(PROJECTS_URL, project.id)
+        response = auth_client.post(url)
+        assert response.status_code == 409
+
+    def test_member_cannot_bootstrap(self, api_client, other_user, project):
+        ProjectMemberFactory(project=project, user=other_user, role='member')
+        api_client.force_authenticate(user=other_user)
+        url = self.BOOTSTRAP_URL.format(PROJECTS_URL, project.id)
+        response = api_client.post(url)
+        assert response.status_code == 403
+
+    def test_stranger_cannot_bootstrap(self, api_client, other_user, project):
+        api_client.force_authenticate(user=other_user)
+        url = self.BOOTSTRAP_URL.format(PROJECTS_URL, project.id)
+        response = api_client.post(url)
+        assert response.status_code == 403
 
 
 @pytest.mark.django_db

@@ -6,6 +6,7 @@ from apps.projects.views import (
     ProjectListCreateView,
     ProjectMemberDetailView,
     ProjectMemberListCreateView,
+    ProjectStatusBootstrapDefaultsView,
     ProjectStatusDetailView,
     ProjectStatusListCreateView,
 )
@@ -17,6 +18,12 @@ urlpatterns = [
         '<uuid:project_id>/statuses/',
         ProjectStatusListCreateView.as_view(),
         name='project-statuses',
+    ),
+    # 此路由必須在 <uuid:pk> detail 之前,避免被誤匹配
+    path(
+        '<uuid:project_id>/statuses/bootstrap-defaults/',
+        ProjectStatusBootstrapDefaultsView.as_view(),
+        name='project-statuses-bootstrap',
     ),
     path(
         '<uuid:project_id>/statuses/<uuid:pk>/',
