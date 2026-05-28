@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="flex flex-col flex-1 min-h-0">
     <!-- Breadcrumb -->
     <nav class="text-xs text-stone-500 dark:text-stone-400 mb-2">
       <RouterLink to="/workspaces" class="hover:text-orange-600 hover:underline">
@@ -68,7 +68,7 @@
     </div>
 
     <!-- Kanban columns -->
-    <div v-else class="mt-6 overflow-x-auto pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6">
+    <div v-else class="flex-1 min-h-0 mt-6 overflow-x-auto pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6">
       <div class="flex gap-4 min-w-max items-start">
         <section
           v-for="(col, idx) in columns"
@@ -159,7 +159,7 @@
 
     <!-- Task Drawer -->
     <TaskDrawer
-      v-if="selectedTask"
+      :show="!!selectedTask"
       :task="selectedTask"
       @close="closeDrawer"
       @deleted="closeDrawer"

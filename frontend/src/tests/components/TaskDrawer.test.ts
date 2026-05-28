@@ -1,5 +1,5 @@
 /**
- * TaskDrawer 元件測試
+ * TaskDetailPanel 元件測試
  * 規格：.doc/taskflow_layout_design.md §9.5
  *
  * 涵蓋：
@@ -9,6 +9,8 @@
  * - 子任務 Tab：渲染 store 中 parent_task 為當前 task 的子任務
  * - 點關閉 emit close 事件
  * - 儲存：PATCH /tasks/:id/ 後 emit close
+ *
+ * 注意：TaskDrawer 是僅含動畫邏輯的殼層元件，內容測試以 TaskDetailPanel 為主。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
@@ -25,7 +27,7 @@ vi.mock('@/api/client', () => ({
 }))
 
 import { useTaskStore } from '@/stores/task'
-import TaskDrawer from '@/components/task/TaskDrawer.vue'
+import TaskDetailPanel from '@/components/task/TaskDetailPanel.vue'
 import type { Task } from '@/types'
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -54,7 +56,7 @@ function paginated<T>(results: T[]) {
   return { count: results.length, next: null, previous: null, results }
 }
 
-describe('TaskDrawer', () => {
+describe('TaskDetailPanel', () => {
   beforeEach(() => {
     vi.mocked(client.get).mockReset()
     vi.mocked(client.post).mockReset()
@@ -64,7 +66,7 @@ describe('TaskDrawer', () => {
 
   it('顯示 task 的 title / description / priority（位於表單欄位中）', () => {
     const task = makeTask({ title: 'A', description: 'B', priority: 'high' })
-    const wrapper = mount(TaskDrawer, { props: { task } })
+    const wrapper = mount(TaskDetailPanel, { props: { task } })
 
     expect(
       (wrapper.find('[data-test="title-input"]').element as HTMLInputElement).value,
@@ -78,7 +80,7 @@ describe('TaskDrawer', () => {
   })
 
   it('預設顯示「描述」Tab', () => {
-    const wrapper = mount(TaskDrawer, { props: { task: makeTask() } })
+    const wrapper = mount(TaskDetailPanel, { props: { task: makeTask() } })
     expect(wrapper.find('[data-test="tab-description"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="tab-comments"]').exists()).toBe(false)
   })
@@ -96,7 +98,7 @@ describe('TaskDrawer', () => {
       ]),
     })
 
-    const wrapper = mount(TaskDrawer, { props: { task: makeTask({ id: 't1' }) } })
+    const wrapper = mount(TaskDetailPanel, { props: { task: makeTask({ id: 't1' }) } })
     await wrapper.find('[data-test="tab-btn-comments"]').trigger('click')
     await flushPromises()
 
@@ -117,7 +119,7 @@ describe('TaskDrawer', () => {
       },
     })
 
-    const wrapper = mount(TaskDrawer, { props: { task: makeTask({ id: 't1' }) } })
+    const wrapper = mount(TaskDetailPanel, { props: { task: makeTask({ id: 't1' }) } })
     await wrapper.find('[data-test="tab-btn-comments"]').trigger('click')
     await flushPromises()
 
@@ -148,7 +150,7 @@ describe('TaskDrawer', () => {
     const taskStore = useTaskStore()
     await taskStore.fetchByProject('p1')
 
-    const wrapper = mount(TaskDrawer, { props: { task: main } })
+    const wrapper = mount(TaskDetailPanel, { props: { task: main } })
     await wrapper.find('[data-test="tab-btn-subtasks"]').trigger('click')
     await flushPromises()
 
@@ -170,7 +172,7 @@ describe('TaskDrawer', () => {
       ]),
     })
 
-    const wrapper = mount(TaskDrawer, { props: { task: makeTask({ id: 't1' }) } })
+    const wrapper = mount(TaskDetailPanel, { props: { task: makeTask({ id: 't1' }) } })
     await wrapper.find('[data-test="tab-btn-attachments"]').trigger('click')
     await flushPromises()
 
@@ -188,7 +190,7 @@ describe('TaskDrawer', () => {
     const updated = { ...task, title: '改' }
     vi.mocked(client.patch).mockResolvedValueOnce({ data: updated })
 
-    const wrapper = mount(TaskDrawer, { props: { task } })
+    const wrapper = mount(TaskDetailPanel, { props: { task } })
     await wrapper.find('[data-test="title-input"]').setValue('改')
     await wrapper.find('[data-test="save-btn"]').trigger('click')
     await flushPromises()
@@ -201,7 +203,7 @@ describe('TaskDrawer', () => {
   })
 
   it('點關閉按鈕 emit close 事件', async () => {
-    const wrapper = mount(TaskDrawer, { props: { task: makeTask() } })
+    const wrapper = mount(TaskDetailPanel, { props: { task: makeTask() } })
     await wrapper.find('[data-test="close-btn"]').trigger('click')
     expect(wrapper.emitted('close')).toBeTruthy()
   })
