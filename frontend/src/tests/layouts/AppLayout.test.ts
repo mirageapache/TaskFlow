@@ -140,14 +140,21 @@ describe('AppLayout', () => {
     expect(pushSpy).toHaveBeenCalledWith('/login')
   })
 
-  it('Sidebar 撐滿 viewport 高度（sticky + h-[calc(100vh-3.5rem)]）', async () => {
+  it('Sidebar 透過 flex 父層撐滿剩餘高度（lg:flex + 父層 flex-1 min-h-0）', async () => {
     const wrapper = await mountLayout(buildRouter())
     const sidebar = wrapper.find('[data-test="sidebar"]')
     expect(sidebar.exists()).toBe(true)
+
+    // 新版改用 flex 撐高，sidebar 本身需是 flex column
     const cls = sidebar.classes()
-    expect(cls).toContain('sticky')
-    // 高度撐滿 viewport - topbar 56px
-    expect(cls.some((c) => c.includes('h-[calc(100vh-3.5rem)]'))).toBe(true)
+    expect(cls).toContain('lg:flex')
+    expect(cls).toContain('flex-col')
+
+    // 父層需具備 flex-1 min-h-0 才能讓 sidebar 在 topbar 下方撐到底
+    const parent = sidebar.element.parentElement
+    expect(parent).not.toBeNull()
+    expect(parent!.className).toContain('flex-1')
+    expect(parent!.className).toContain('min-h-0')
   })
 
   it('Sidebar 上方顯示目前工作區名稱（workspace store 有資料時）', async () => {

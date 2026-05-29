@@ -47,6 +47,35 @@ const workspaces = [
   },
 ]
 
+const projects = [
+  {
+    id: 'p1',
+    workspace: 'w1',
+    name: '官網改版',
+    description: '',
+    color: '#F97316',
+    created_at: '',
+    updated_at: '',
+  },
+  {
+    id: 'p2',
+    workspace: 'w1',
+    name: '行銷活動',
+    description: '',
+    color: '#3B82F6',
+    created_at: '',
+    updated_at: '',
+  },
+]
+
+function mockWorkspacesAndProjects() {
+  vi.mocked(client.get).mockImplementation((url: string) => {
+    if (url === '/workspaces/') return Promise.resolve({ data: paginated(workspaces) })
+    if (url === '/projects/') return Promise.resolve({ data: paginated(projects) })
+    return Promise.reject(new Error(`Unexpected URL: ${url}`))
+  })
+}
+
 function buildRouter(): Router {
   return createRouter({
     history: createMemoryHistory(),
@@ -72,6 +101,9 @@ async function mountView(router: Router) {
   const wrapper = mount(DashboardView, {
     global: { plugins: [router] },
   })
+  // 兩次 flush：先讓 workspaceStore.fetchAll() resolve，再讓接著鏈式呼叫的
+  // projectStore.fetchByWorkspace() 與後續 DOM patch 完成
+  await flushPromises()
   await flushPromises()
   return wrapper
 }
@@ -97,37 +129,37 @@ describe('DashboardView', () => {
   })
 
   it('渲染 4 張統計卡片', async () => {
-    vi.mocked(client.get).mockResolvedValueOnce({ data: paginated(workspaces) })
+    mockWorkspacesAndProjects()
     const wrapper = await mountView(buildRouter())
 
     const cards = wrapper.findAll('[data-test="stat-card"]')
     expect(cards).toHaveLength(4)
   })
 
-  it('「工作區」統計卡顯示載入後的數量', async () => {
-    vi.mocked(client.get).mockResolvedValueOnce({ data: paginated(workspaces) })
+  it('「專案」統計卡顯示當前工作區的專案數', async () => {
+    mockWorkspacesAndProjects()
     const wrapper = await mountView(buildRouter())
 
-    const wsCard = wrapper.find('[data-card="workspaces"]')
-    expect(wsCard.exists()).toBe(true)
-    expect(wsCard.text()).toContain('2')
+    const projCard = wrapper.find('[data-card="projects"]')
+    expect(projCard.exists()).toBe(true)
+    expect(projCard.text()).toContain('2')
   })
 
-  it('已載入工作區：列表顯示捷徑', async () => {
-    vi.mocked(client.get).mockResolvedValueOnce({ data: paginated(workspaces) })
+  it('已載入專案：列表顯示專案捷徑（連到看板）', async () => {
+    mockWorkspacesAndProjects()
     const wrapper = await mountView(buildRouter())
 
-    const links = wrapper.findAll('[data-test="workspace-link"]')
+    const links = wrapper.findAll('[data-test="project-link"]')
     expect(links).toHaveLength(2)
-    expect(links[0].text()).toContain('個人')
-    expect(links[0].attributes('href')).toBe('/workspaces/w1/projects')
+    expect(links[0].text()).toContain('官網改版')
+    expect(links[0].attributes('href')).toBe('/project/p1/board')
   })
 
   it('沒有工作區：顯示提示，連結到 /workspaces 建立', async () => {
     vi.mocked(client.get).mockResolvedValueOnce({ data: paginated([]) })
     const wrapper = await mountView(buildRouter())
 
-    expect(wrapper.text()).toContain('還沒有工作區')
+    expect(wrapper.text()).toContain('尚未選擇工作區')
     expect(wrapper.find('a[href="/workspaces"]').exists()).toBe(true)
   })
 })

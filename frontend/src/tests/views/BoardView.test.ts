@@ -146,7 +146,15 @@ async function mountBoard(router: Router) {
   await router.push('/project/p1/board')
   await router.isReady()
   const wrapper = mount(BoardView, {
-    global: { plugins: [router] },
+    global: {
+      plugins: [router],
+      // TaskDrawer 內部使用 <Teleport to="body">，會把內容渲染到 wrapper 之外
+      // 導致 wrapper.find('[data-test="task-drawer"]') 找不到；
+      // 用 stub 讓 Teleport 在原地展開 slot 內容以便測試查詢。
+      stubs: {
+        Teleport: { template: '<div><slot /></div>' },
+      },
+    },
   })
   await flushPromises()
   await flushPromises()
