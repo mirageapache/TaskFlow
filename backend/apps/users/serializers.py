@@ -7,9 +7,11 @@
 """
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.users.models import User, UserProfile
+from apps.workspaces.models import Workspace, WorkspaceMember
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -68,10 +70,24 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        """建立 User 並同步建立關聯的 UserProfile。"""
+        """建立 User，並同步建立 UserProfile 與預設工作區。
+
+        預設工作區讓使用者首次登入即有工作區可顯示（owner 身分）。
+        全程包在 transaction.atomic：任一步驟失敗則整批回滾，不留半套資料。
+        """
         password = validated_data.pop('password')
-        user = User.objects.create_user(password=password, **validated_data)
-        UserProfile.objects.create(user=user)
+        with transaction.atomic():
+            user = User.objects.create_user(password=password, **validated_data)
+            UserProfile.objects.create(user=user)
+            workspace = Workspace.objects.create(
+                name=f'{user.username} 的工作區',
+                owner=user,
+            )
+            WorkspaceMember.objects.create(
+                workspace=workspace,
+                user=user,
+                role=WorkspaceMember.Role.OWNER,
+            )
         return user
 
 

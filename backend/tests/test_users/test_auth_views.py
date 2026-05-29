@@ -9,6 +9,8 @@ Auth API TDD 測試 — Phase 1
 """
 import pytest
 
+from apps.users.models import User
+from apps.workspaces.models import Workspace, WorkspaceMember
 from tests.factories import UserFactory
 
 REGISTER_URL = '/api/v1/auth/register/'
@@ -65,6 +67,49 @@ class TestRegister:
         response = api_client.post(REGISTER_URL, data)
         assert response.status_code == 400
         assert 'password' in response.data
+
+    def test_register_creates_default_workspace(self, api_client):
+        """註冊成功後應自動建立一個以使用者命名的預設工作區，
+        讓首次登入即有工作區可顯示。"""
+        data = {
+            'email': 'firsttime@example.com',
+            'username': 'Alice',
+            'password': 'StrongP@ssw0rd!',
+        }
+        response = api_client.post(REGISTER_URL, data)
+        assert response.status_code == 201
+
+        user = User.objects.get(email='firsttime@example.com')
+        workspaces = Workspace.objects.filter(owner=user)
+        assert workspaces.count() == 1
+        assert workspaces.first().name == 'Alice 的工作區'
+
+    def test_register_adds_user_as_owner_member(self, api_client):
+        """預設工作區須將使用者加入為 owner 角色的成員。"""
+        data = {
+            'email': 'owner@example.com',
+            'username': 'Bob',
+            'password': 'StrongP@ssw0rd!',
+        }
+        response = api_client.post(REGISTER_URL, data)
+        assert response.status_code == 201
+
+        user = User.objects.get(email='owner@example.com')
+        workspace = Workspace.objects.get(owner=user)
+        member = WorkspaceMember.objects.get(workspace=workspace, user=user)
+        assert member.role == WorkspaceMember.Role.OWNER
+
+    def test_register_failure_creates_no_workspace(self, api_client):
+        """註冊失敗（弱密碼）時不應殘留任何工作區。"""
+        data = {
+            'email': 'rollback@example.com',
+            'username': 'rollbackuser',
+            'password': '123',
+        }
+        response = api_client.post(REGISTER_URL, data)
+        assert response.status_code == 400
+        assert not User.objects.filter(email='rollback@example.com').exists()
+        assert not Workspace.objects.filter(name__startswith='rollbackuser').exists()
 
 
 @pytest.mark.django_db
